@@ -21,6 +21,10 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
@@ -30,8 +34,7 @@ public class EDDBClient {
 	
 	private InetAddress server_addr;
 	private int tcp_server_port = 9160;
-	private final AsynchronousSocketChannel channel;
-	private final ByteBuffer buffer;
+	private AsynchronousSocketChannel channel;
 	private Protocol protocol;
 	
 	public EDDBClient(Protocol protocol, InetAddress server_addr) throws Exception {
@@ -43,62 +46,149 @@ public class EDDBClient {
 		if (protocol == null) {
 			throw new NullPointerException("\"protocol\" can't to be null");
 		}
-		
-		channel = AsynchronousSocketChannel.open();
-		buffer = ByteBuffer.allocateDirect(50);
+		open();
 	}
 	
-	public void start() throws Exception {
-		buffer.clear();
+	public void open() throws Exception {
+		channel = AsynchronousSocketChannel.open();
+	}
+	
+	// TODO a ping request (get time ?)
+	
+	/**
+	 * Non blocking.
+	 */
+	public void connect(final Callable<Void> connected, Logger callable_log) throws Exception {
+		log.debug("Try to connect to server " + server_addr);
 		
 		channel.connect(new InetSocketAddress(server_addr, tcp_server_port), null, new CompletionHandler<Void, Void>() {
 			
+			/**
+			 * On connect
+			 */
 			public void completed(Void result, Void attach) {
-				// TODO an Hello request
-				// TODO a ping request (get time ?)
+				log.debug("Connected on server " + server_addr);
 				
-				buffer.put("Hello".getBytes());
-				buffer.flip();
 				try {
-					channel.write(buffer).get();
+					ArrayList<RequestBlock> hello = new ArrayList<>(Arrays.asList(protocol.createHello()));
+					
+					/**
+					 * Do Hello request
+					 */
+					log.debug("Do Hello request to " + server_addr);
+					request(hello, (response_blocks, response_server) -> {
+						/**
+						 * On response
+						 */
+						log.info("Server " + response_server + " respond: " + response_blocks.size());// XXX
+						
+						try {
+							/**
+							 * Do the callback
+							 */
+							connected.call();
+						} catch (Exception ce) {
+							callable_log.error("Error during callbacks", ce);
+							// TODO throw somewhere
+						}
+					});
 				} catch (Exception e) {
-					log.error("Error during write", e);
-					return;
-				}
-				
-				buffer.clear();
-				int size = -1;
-				try {
-					size = channel.read(buffer).get();
-				} catch (Exception e) {
-					log.error("Error during write", e);
-					return;
-				}
-				
-				if (size < 1) {
-					return;
-				}
-				buffer.flip();
-				byte bytes[] = new byte[size]; // buffer.limit();
-				buffer.get(bytes, 0, size);
-				System.out.println("S> " + new String(bytes));
-				
-				buffer.clear();
-				buffer.put(".".getBytes());
-				buffer.flip();
-				try {
-					channel.write(buffer).get();
-				} catch (Exception e) {
-					log.error("Error during write", e);
-					return;
+					log.error("Can't connect correctly", e);
+					// TODO throw somewhere
 				}
 			}
 			
 			public void failed(Throwable e, Void attach) {
-				log.error("Can't Client", e);
+				log.error("Can't operate as client", e);
 			}
 			
 		});
+	}
+	
+	/**
+	 * Be polite, do a first connect() before requests.
+	 */
+	public void request(ArrayList<RequestBlock> request, ServerResponse response) throws Exception {
+		if (log.isTraceEnabled()) {
+			AtomicInteger all_size = new AtomicInteger(0);
+			request.forEach(block -> {
+				all_size.addAndGet(block.getLen());
+			});
+			log.trace("Request to server " + server_addr + " " + all_size.get() + " bytes of datas on " + request.size() + " block(s).");
+		}
+		
+		byte[] raw = protocol.compressBlocks(request);
+		ByteBuffer buffer = protocol.encrypt(ByteBuffer.wrap(raw));
+		buffer.flip();
+		
+		channel.write(buffer, null, new CompletionHandler<Integer, Void>() {
+			
+			@Override
+			public void completed(Integer result, Void attachment) {
+				try {
+					buffer.clear();
+					
+					if (log.isTraceEnabled()) {
+						log.trace("Server " + server_addr + " as correctly recevied datas. Now, wait its response...");
+					}
+					
+					int size = channel.read(buffer).get();
+					if (size < 1) {
+						buffer.clear();
+						log.trace("No datas sended by the server " + server_addr + " on the response");
+						return;
+					}
+					buffer.flip();
+					
+					if (log.isTraceEnabled()) {
+						log.trace("Response recevied from the server " + server_addr + " " + size + " bytes");
+					}
+					
+					/**
+					 * Decrypt ByteBuffer
+					 */
+					ByteBuffer uncrypted_buffer = protocol.decrypt(buffer);
+					buffer.clear();
+					
+					/**
+					 * Transfert uncrypted datas to byte[]
+					 */
+					uncrypted_buffer.flip();
+					byte[] uncrypted_content = new byte[uncrypted_buffer.remaining()];
+					uncrypted_buffer.get(uncrypted_content, 0, uncrypted_content.length);
+					uncrypted_buffer.clear();
+					
+					/**
+					 * Decompress and callback items
+					 */
+					ArrayList<RequestBlock> blocks = protocol.decompressBlocks(uncrypted_content);
+					
+					if (log.isTraceEnabled()) {
+						AtomicInteger all_size = new AtomicInteger(0);
+						blocks.forEach(block -> {
+							all_size.addAndGet(block.getLen());
+						});
+						log.trace("The response from the server " + server_addr + "  is extracted. Total size: " + all_size.get() + " bytes on " + blocks.size() + " block(s).");
+					}
+					
+					response.onServerRespond(blocks, server_addr);
+				} catch (Exception e) {
+					log.error("Can't communicate with the server " + server_addr, e);// TODO throw somewhere
+				}
+			}
+			
+			public void failed(Throwable e, Void attachment) {
+				log.error("Can't send to server", e); // TODO throw somewhere
+			}
+			
+		});
+	}
+	
+	public void close() throws Exception {
+		if (channel.isOpen()) {
+			// TODO disconnect with protocol
+			channel.close();
+		}
 	}
 	
 	public void setTcpServerPort(int tcp_server_port) {

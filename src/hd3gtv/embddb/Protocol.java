@@ -21,6 +21,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -117,6 +118,16 @@ public class Protocol { // TODO rename to low level
 		}
 		
 		return baos.toByteArray();
+	}
+	
+	public static final Charset UTF8 = Charset.forName("UTF-8");
+	
+	RequestBlock createHello() {
+		return new RequestBlock("hello", "Hello from X".getBytes(UTF8), System.currentTimeMillis()); // TODO set X...
+	}
+	
+	RequestBlock createWelcome() {
+		return new RequestBlock("welcome", "Welcome from X".getBytes(UTF8), System.currentTimeMillis()); // TODO set X...
 	}
 	
 }

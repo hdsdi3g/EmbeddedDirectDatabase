@@ -17,22 +17,38 @@
 package hd3gtv.embddb;
 
 import java.net.InetAddress;
+import java.security.Security;
 import java.util.ArrayList;
+import java.util.Arrays;
+
+import org.apache.log4j.Logger;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.jfree.util.Log;
 
 public class MainClass {
 	
+	private static Logger log = Logger.getLogger(MainClass.class);
+	
 	public static void main(String[] args) throws Exception {
+		Security.addProvider(new BouncyCastleProvider());
+		
 		Protocol protocol = new Protocol("test");
 		
 		EDDBNode node = new EDDBNode(protocol, (list, addr) -> {
-			// TODO
-			return new ArrayList<>();
+			list.forEach(block -> {
+				log.info("Request block: " + block.getName() + ", size " + block.getLen() + " from " + addr);
+			});
+			
+			return new ArrayList<>(Arrays.asList(protocol.createWelcome()));
 		});
 		node.start();
 		Thread.sleep(50);
 		
 		EDDBClient client = new EDDBClient(protocol, InetAddress.getByName("127.0.0.1"));
-		client.start();
+		client.connect(() -> {
+			Log.info("Connection is ok");
+			return null;
+		}, log);
 		
 		while (true) {
 			Thread.sleep(10);

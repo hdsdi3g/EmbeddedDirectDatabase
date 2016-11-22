@@ -31,6 +31,19 @@ public final class RequestBlock {
 	private RequestBlock() {
 	}
 	
+	public RequestBlock(String name, byte[] datas, long date) {
+		this.name = name;
+		if (name == null) {
+			throw new NullPointerException("\"name\" can't to be null");
+		}
+		this.datas = datas;
+		if (datas == null) {
+			throw new NullPointerException("\"datas\" can't to be null");
+		}
+		this.date = date;
+		len = datas.length;
+	}
+	
 	void exportToZip(ZipOutputStream zipdatas) throws IOException {
 		ZipEntry entry = new ZipEntry(name);
 		entry.setTime(date);
@@ -42,7 +55,7 @@ public final class RequestBlock {
 	
 	static RequestBlock importFromZip(ZipEntry entry, ZipInputStream zipdatas) throws IOException {
 		RequestBlock block = new RequestBlock();
-		block.datas = new byte[(int) entry.getSize()];
+		block.datas = new byte[(int) entry.getSize()]; // FIXME -1 ?!
 		zipdatas.read(block.datas);
 		block.date = entry.getTime();
 		block.len = block.datas.length;
