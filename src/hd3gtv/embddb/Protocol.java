@@ -18,6 +18,7 @@ package hd3gtv.embddb;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.ByteBuffer;
@@ -26,6 +27,7 @@ import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.zip.ZipEntry;
@@ -37,9 +39,19 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
 public class Protocol { // TODO rename to low level
+	
+	public static final int BUFFER_SIZE = 0xFFFF;
+	
+	public static boolean DUMP_ZIP_BINARIES_TO_FILES = Boolean.parseBoolean(System.getProperty(Protocol.class.getName().toLowerCase() + ".dump.hex.file", "false"));
+	
+	/**
+	 * It Needs trace log enabled.
+	 */
+	public static boolean DISPLAY_HEXDUMP = Boolean.parseBoolean(System.getProperty(Protocol.class.getName().toLowerCase() + ".dump.hex", "true"));
 	
 	private IvParameterSpec salt;
 	private SecretKey skeySpec;
@@ -81,6 +93,16 @@ public class Protocol { // TODO rename to low level
 	}
 	
 	ArrayList<RequestBlock> decompressBlocks(byte[] uncrypted_content) throws IOException {
+		if (DISPLAY_HEXDUMP) {
+			Hexview.tracelog(uncrypted_content, log, "Uncrypted zipped content");
+		}
+		
+		if (DUMP_ZIP_BINARIES_TO_FILES) {
+			File temp = new File("Protocol-Decmpr-" + (new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss-SSS")).format(new Date()) + ".zip");
+			log.info("Write zip item to file " + temp.getAbsolutePath());
+			FileUtils.writeByteArrayToFile(temp, uncrypted_content);
+		}
+		
 		ArrayList<RequestBlock> result = new ArrayList<>();
 		ByteArrayInputStream inputstream_client_request = new ByteArrayInputStream(uncrypted_content);
 		ZipInputStream request_zip = new ZipInputStream(inputstream_client_request);
@@ -98,10 +120,10 @@ public class Protocol { // TODO rename to low level
 	 * @throws IOException if size is > EDDBNode.BUFFER_SIZE
 	 */
 	byte[] compressBlocks(ArrayList<RequestBlock> response_blocks) throws IOException {
-		ByteArrayOutputStream baos = new ByteArrayOutputStream(EDDBNode.BUFFER_SIZE);
+		ByteArrayOutputStream baos = new ByteArrayOutputStream(BUFFER_SIZE);
 		
 		ZipOutputStream zos = new ZipOutputStream(baos);
-		zos.setComment("Created by EmbDB the " + new Date());
+		zos.setComment("EmbDB");
 		zos.setLevel(3);
 		
 		response_blocks.forEach(block -> {
@@ -111,10 +133,22 @@ public class Protocol { // TODO rename to low level
 				log.error("Can't add to zip", e);
 			}
 		});
+		zos.flush();
+		zos.finish();
 		zos.close();
 		
-		if (baos.size() > EDDBNode.BUFFER_SIZE) {
-			throw new IOException("Max size for message (" + baos.size() + " bytes > " + EDDBNode.BUFFER_SIZE + " bytes)");
+		if (baos.size() > BUFFER_SIZE) {
+			throw new IOException("Max size for message (" + baos.size() + " bytes > " + BUFFER_SIZE + " bytes)");
+		}
+		
+		if (DISPLAY_HEXDUMP) {
+			Hexview.tracelog(baos.toByteArray(), log, "Uncrypted zipped content");
+		}
+		
+		if (DUMP_ZIP_BINARIES_TO_FILES) {
+			File temp = new File("Protocol-Cmpr-" + (new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss-SSS")).format(new Date()) + ".zip");
+			log.info("Write zip item to file " + temp.getAbsolutePath());
+			FileUtils.writeByteArrayToFile(temp, baos.toByteArray());
 		}
 		
 		return baos.toByteArray();
@@ -122,6 +156,7 @@ public class Protocol { // TODO rename to low level
 	
 	public static final Charset UTF8 = Charset.forName("UTF-8");
 	
+	// TODO add and check protocol version, with another block.
 	RequestBlock createHello() {
 		return new RequestBlock("hello", "Hello from X".getBytes(UTF8), System.currentTimeMillis()); // TODO set X...
 	}

@@ -16,13 +16,18 @@
 */
 package hd3gtv.embddb;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.log4j.Logger;
+
 public final class RequestBlock {
 	
+	private static final Logger log = Logger.getLogger(RequestBlock.class);
 	private String name;
 	private byte[] datas;
 	private int len;
@@ -47,19 +52,33 @@ public final class RequestBlock {
 	void exportToZip(ZipOutputStream zipdatas) throws IOException {
 		ZipEntry entry = new ZipEntry(name);
 		entry.setTime(date);
-		entry.setSize(len);
+		// entry.setSize(len);
 		zipdatas.putNextEntry(entry);
+		
+		if (Protocol.DISPLAY_HEXDUMP) {
+			Hexview.tracelog(datas, 0, len, log, "Raw block entry \"" + name + "\"");
+		}
+		
 		zipdatas.write(datas, 0, len);
+		zipdatas.flush();
 		zipdatas.closeEntry();
 	}
 	
 	static RequestBlock importFromZip(ZipEntry entry, ZipInputStream zipdatas) throws IOException {
 		RequestBlock block = new RequestBlock();
-		block.datas = new byte[(int) entry.getSize()]; // FIXME -1 ?!
-		zipdatas.read(block.datas);
-		block.date = entry.getTime();
+		
+		ByteArrayOutputStream bias = new ByteArrayOutputStream(Protocol.BUFFER_SIZE);
+		IOUtils.copy(zipdatas, bias);
+		
+		block.datas = bias.toByteArray();
 		block.len = block.datas.length;
+		block.date = entry.getTime();
 		block.name = entry.getName();
+		
+		if (Protocol.DISPLAY_HEXDUMP) {
+			Hexview.tracelog(block.datas, log, "Raw block entry \"" + block.name + "\"");
+		}
+		
 		return block;
 	}
 	

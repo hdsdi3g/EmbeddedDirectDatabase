@@ -29,7 +29,6 @@ import org.apache.log4j.Logger;
 public class EDDBNode {
 	
 	private static final Logger log = Logger.getLogger(EDDBNode.class);
-	public static final int BUFFER_SIZE = 0xFFFF;
 	
 	private int tcp_server_port = 9160;
 	private final AsynchronousServerSocketChannel server;
@@ -69,7 +68,7 @@ public class EDDBNode {
 				
 				log.info("Client request " + clientAddr.getHostString());
 				
-				ByteBuffer buffer = ByteBuffer.allocateDirect(BUFFER_SIZE);
+				ByteBuffer buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
 				ByteBuffer uncrypted_buffer;
 				byte[] uncrypted_content;
 				ArrayList<RequestBlock> response_blocks;
@@ -78,6 +77,7 @@ public class EDDBNode {
 					/**
 					 * Get raw client request
 					 */
+					buffer.clear();
 					int size = client.read(buffer).get();
 					if (size < 1) {
 						buffer.clear();
@@ -88,6 +88,13 @@ public class EDDBNode {
 					
 					if (log.isTraceEnabled()) {
 						log.trace("Recevied from " + clientAddr + " " + size + " bytes");
+					}
+					
+					if (Protocol.DISPLAY_HEXDUMP) {
+						byte[] temp = new byte[buffer.remaining()];
+						buffer.get(temp);
+						Hexview.tracelog(temp, log, "Crypted recivied content from client");
+						buffer.flip();
 					}
 					
 					/**
@@ -117,10 +124,24 @@ public class EDDBNode {
 						continue;
 					}
 					
-					uncrypted_buffer.put(protocol.compressBlocks(response_blocks));
+					buffer.clear();
+					buffer.put(protocol.compressBlocks(response_blocks));
+					buffer.flip();
+					
+					/**
+					 * Actually, uncrypted_buffer is crypted.
+					 */
+					uncrypted_buffer = protocol.encrypt(buffer);
 					uncrypted_buffer.flip();
 					
-					client.write((ByteBuffer) protocol.encrypt(uncrypted_buffer).flip()).get();
+					if (Protocol.DISPLAY_HEXDUMP) {
+						byte[] temp = new byte[uncrypted_buffer.remaining()];
+						uncrypted_buffer.get(temp);
+						Hexview.tracelog(temp, log, "Crypted sended content to client");
+						uncrypted_buffer.flip();
+					}
+					
+					client.write(uncrypted_buffer).get();
 				}
 			} catch (Exception e) {
 				log.error("Socket error", e);

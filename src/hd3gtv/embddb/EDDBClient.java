@@ -80,7 +80,7 @@ public class EDDBClient {
 						/**
 						 * On response
 						 */
-						log.info("Server " + response_server + " respond: " + response_blocks.size());// XXX
+						log.info("Server " + response_server + " respond: " + response_blocks.size());// TODO check if hello/welcome is correct.
 						
 						try {
 							/**
@@ -118,37 +118,48 @@ public class EDDBClient {
 		}
 		
 		byte[] raw = protocol.compressBlocks(request);
-		ByteBuffer buffer = protocol.encrypt(ByteBuffer.wrap(raw));
-		buffer.flip();
+		ByteBuffer send_buffer = protocol.encrypt(ByteBuffer.wrap(raw));
+		send_buffer.flip();
 		
-		channel.write(buffer, null, new CompletionHandler<Integer, Void>() {
+		if (Protocol.DISPLAY_HEXDUMP) {
+			byte[] temp = new byte[send_buffer.remaining()];
+			send_buffer.get(temp);
+			Hexview.tracelog(temp, log, "Crypted sended content to server");
+			send_buffer.flip();
+		}
+		
+		channel.write(send_buffer, null, new CompletionHandler<Integer, Void>() {
 			
 			@Override
 			public void completed(Integer result, Void attachment) {
 				try {
-					buffer.clear();
-					
 					if (log.isTraceEnabled()) {
 						log.trace("Server " + server_addr + " as correctly recevied datas. Now, wait its response...");
 					}
 					
-					int size = channel.read(buffer).get();
+					ByteBuffer read_buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
+					int size = channel.read(read_buffer).get();
 					if (size < 1) {
-						buffer.clear();
 						log.trace("No datas sended by the server " + server_addr + " on the response");
 						return;
 					}
-					buffer.flip();
+					read_buffer.flip();
 					
 					if (log.isTraceEnabled()) {
 						log.trace("Response recevied from the server " + server_addr + " " + size + " bytes");
 					}
 					
+					if (Protocol.DISPLAY_HEXDUMP) {
+						byte[] temp = new byte[read_buffer.remaining()];
+						read_buffer.get(temp);
+						Hexview.tracelog(temp, log, "Crypted recivied content from server");
+						read_buffer.flip();
+					}
+					
 					/**
 					 * Decrypt ByteBuffer
 					 */
-					ByteBuffer uncrypted_buffer = protocol.decrypt(buffer);
-					buffer.clear();
+					ByteBuffer uncrypted_buffer = protocol.decrypt(read_buffer);
 					
 					/**
 					 * Transfert uncrypted datas to byte[]
