@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 21 nov. 2016
  * 
 */
-package hd3gtv.embddb;
+package hd3gtv.embddb.network;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -24,6 +24,8 @@ import java.util.zip.ZipOutputStream;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
+
+import hd3gtv.embddb.tools.Hexview;
 
 public final class RequestBlock {
 	

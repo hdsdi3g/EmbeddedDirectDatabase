@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 20 nov. 2016
  * 
 */
-package hd3gtv.embddb;
+package hd3gtv.embddb.network;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -27,6 +27,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
+
+import hd3gtv.embddb.tools.Hexview;
 
 public class EDDBClient {
 	

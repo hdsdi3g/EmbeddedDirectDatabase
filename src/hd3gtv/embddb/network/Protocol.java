@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 21 nov. 2016
  * 
 */
-package hd3gtv.embddb;
+package hd3gtv.embddb.network;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -41,6 +41,8 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
+
+import hd3gtv.embddb.tools.Hexview;
 
 public class Protocol { // TODO rename to low level
 	
@@ -157,11 +159,11 @@ public class Protocol { // TODO rename to low level
 	public static final Charset UTF8 = Charset.forName("UTF-8");
 	
 	// TODO add and check protocol version, with another block.
-	RequestBlock createHello() {
+	public RequestBlock createHello() {
 		return new RequestBlock("hello", "Hello from X".getBytes(UTF8), System.currentTimeMillis()); // TODO set X...
 	}
 	
-	RequestBlock createWelcome() {
+	public RequestBlock createWelcome() {
 		return new RequestBlock("welcome", "Welcome from X".getBytes(UTF8), System.currentTimeMillis()); // TODO set X...
 	}
 	

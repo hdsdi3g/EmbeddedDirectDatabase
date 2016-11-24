@@ -11,17 +11,20 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 21 nov. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 24 nov. 2016
  * 
 */
-package hd3gtv.embddb;
+package hd3gtv.embddb.network.dialect;
 
-import java.net.InetAddress;
-import java.util.ArrayList;
-
-@FunctionalInterface
-public interface ServerRequestEntry {
+public enum Version {
 	
-	public ArrayList<RequestBlock> onRequest(ArrayList<RequestBlock> blocks, InetAddress source) throws WantToCloseLink;
+	V1;
+	
+	/**
+	 * @return 1
+	 */
+	public String toString() {
+		return String.valueOf(this.ordinal() + 1);
+	};
 	
 }

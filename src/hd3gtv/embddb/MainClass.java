@@ -25,6 +25,10 @@ import org.apache.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.jfree.util.Log;
 
+import hd3gtv.embddb.network.EDDBClient;
+import hd3gtv.embddb.network.EDDBNode;
+import hd3gtv.embddb.network.Protocol;
+
 public class MainClass {
 	
 	private static Logger log = Logger.getLogger(MainClass.class);
@@ -33,6 +37,8 @@ public class MainClass {
 		Security.addProvider(new BouncyCastleProvider());
 		
 		Protocol protocol = new Protocol("test");
+		
+		// TODO add Dialog API: list for server and client, add function(Callback) in client.
 		
 		EDDBNode node = new EDDBNode(protocol, (list, addr) -> {
 			list.forEach(block -> {

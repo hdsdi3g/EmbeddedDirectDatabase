@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 22 nov. 2016
  * 
 */
-package hd3gtv.embddb;
+package hd3gtv.embddb.tools;
 
 import java.io.BufferedInputStream;
 import java.io.File;
