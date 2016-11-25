@@ -16,24 +16,29 @@
 */
 package hd3gtv.embddb.network.dialect;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 import hd3gtv.embddb.network.Protocol;
 import hd3gtv.embddb.network.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
-import hd3gtv.embddb.tools.CallableResponder;
 
-public class Welcome extends ServerSayToClient {
-	
-	public Welcome(CallableResponder<ArrayList<RequestBlock>> callback) {
-		super(callback);
-	}
+public class Welcome implements ServerSayToClient {
 	
 	public ArrayList<RequestBlock> getBlocksToSendToClient() {
-		long date = System.currentTimeMillis();
-		
-		return ArrayWrapper.asArrayList(new RequestBlock("welcome", "Welcome from EmbDDB".getBytes(Protocol.UTF8), date),
-				new RequestBlock("version", Version.V1.toString().getBytes(Protocol.UTF8), date));
+		return ArrayWrapper.asArrayList(new RequestBlock("welcome", "Welcome from EmbDDB"), new RequestBlock("version", Protocol.VERSION.toString()));
+	}
+	
+	public void checkMatchVersionWithServer(Protocol protocol, ArrayList<RequestBlock> blocks) throws IOException {
+		if (blocks.get(0).getName().equals("error")) {
+			throw new IOException("Error from server side " + blocks.get(0).getDatasAsString());
+		}
+		if (blocks.size() != 2) {
+			throw new IOException("Bad block count " + blocks.size());
+		}
+		if (Version.resolveFromString(new String(blocks.get(1).getDatas())) != Protocol.VERSION) {
+			throw new IOException("Bad version " + new String(blocks.get(1).getDatas()));
+		}
 	}
 	
 }

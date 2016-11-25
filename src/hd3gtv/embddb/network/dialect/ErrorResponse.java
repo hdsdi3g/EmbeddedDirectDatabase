@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 24 nov. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 25 nov. 2016
  * 
 */
 package hd3gtv.embddb.network.dialect;
@@ -19,17 +19,21 @@ package hd3gtv.embddb.network.dialect;
 import java.util.ArrayList;
 
 import hd3gtv.embddb.network.RequestBlock;
-import hd3gtv.embddb.tools.CallableResponder;
+import hd3gtv.embddb.tools.ArrayWrapper;
 
-abstract class Sentence {
+public class ErrorResponse implements ServerSayToClient {
 	
-	protected final CallableResponder<ArrayList<RequestBlock>> callback;
+	public String message;
 	
-	public Sentence(CallableResponder<ArrayList<RequestBlock>> callback) {
-		this.callback = callback;
-		if (callback == null) {
-			throw new NullPointerException("\"callback\" can't to be null");
+	public ErrorResponse(String message) {
+		this.message = message;
+		if (message == null) {
+			throw new NullPointerException("\"message\" can't to be null");
 		}
+	}
+	
+	public ArrayList<RequestBlock> getBlocksToSendToClient() {
+		return ArrayWrapper.asArrayList(new RequestBlock("error", message));
 	}
 	
 }

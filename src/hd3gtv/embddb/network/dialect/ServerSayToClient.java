@@ -19,24 +19,12 @@ package hd3gtv.embddb.network.dialect;
 import java.util.ArrayList;
 
 import hd3gtv.embddb.network.RequestBlock;
-import hd3gtv.embddb.tools.CallableResponder;
 
-abstract class ServerSayToClient extends Sentence {
-	
-	public ServerSayToClient(CallableResponder<ArrayList<RequestBlock>> callback) {
-		super(callback);
-	}
-	
-	/**
-	 * Client side.
-	 */
-	public final void clientReceviedBlocks(ArrayList<RequestBlock> blocks) {
-		callback.onResponds(blocks);
-	}
+public interface ServerSayToClient {
 	
 	/**
 	 * Server side.
 	 */
-	public abstract ArrayList<RequestBlock> getBlocksToSendToClient();
+	public ArrayList<RequestBlock> getBlocksToSendToClient();
 	
 }

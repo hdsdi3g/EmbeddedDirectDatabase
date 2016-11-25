@@ -42,10 +42,13 @@ import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
+import hd3gtv.embddb.network.dialect.Version;
 import hd3gtv.embddb.tools.Hexview;
 
-public class Protocol { // TODO rename to low level
+public class Protocol {
 	
+	public static final Version VERSION = Version.V1;
+	public static final Charset UTF8 = Charset.forName("UTF-8");
 	public static final int BUFFER_SIZE = 0xFFFF;
 	
 	public static boolean DUMP_ZIP_BINARIES_TO_FILES = Boolean.parseBoolean(System.getProperty(Protocol.class.getName().toLowerCase() + ".dump.hex.file", "false"));
@@ -53,7 +56,7 @@ public class Protocol { // TODO rename to low level
 	/**
 	 * It Needs trace log enabled.
 	 */
-	public static boolean DISPLAY_HEXDUMP = Boolean.parseBoolean(System.getProperty(Protocol.class.getName().toLowerCase() + ".dump.hex", "true"));
+	public static boolean DISPLAY_HEXDUMP = Boolean.parseBoolean(System.getProperty(Protocol.class.getName().toLowerCase() + ".dump.hex", "false"));
 	
 	private IvParameterSpec salt;
 	private SecretKey skeySpec;
@@ -72,6 +75,10 @@ public class Protocol { // TODO rename to low level
 		
 		skeySpec = new SecretKeySpec(key, "AES");
 		salt = new IvParameterSpec(key, 0, 16);
+	}
+	
+	public int getDefaultTCPPort() {
+		return 9160;
 	}
 	
 	ByteBuffer encrypt(ByteBuffer buffer_source) throws GeneralSecurityException {
@@ -154,17 +161,6 @@ public class Protocol { // TODO rename to low level
 		}
 		
 		return baos.toByteArray();
-	}
-	
-	public static final Charset UTF8 = Charset.forName("UTF-8");
-	
-	// TODO add and check protocol version, with another block.
-	public RequestBlock createHello() {
-		return new RequestBlock("hello", "Hello from X".getBytes(UTF8), System.currentTimeMillis()); // TODO set X...
-	}
-	
-	public RequestBlock createWelcome() {
-		return new RequestBlock("welcome", "Welcome from X".getBytes(UTF8), System.currentTimeMillis()); // TODO set X...
 	}
 	
 }

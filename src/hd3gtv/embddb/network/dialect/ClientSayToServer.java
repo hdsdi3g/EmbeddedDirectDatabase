@@ -21,10 +21,15 @@ import java.util.ArrayList;
 import hd3gtv.embddb.network.RequestBlock;
 import hd3gtv.embddb.tools.CallableResponder;
 
-abstract class ClientSayToServer extends Sentence {
+public abstract class ClientSayToServer {
+	
+	protected final CallableResponder<ArrayList<RequestBlock>> callback;
 	
 	public ClientSayToServer(CallableResponder<ArrayList<RequestBlock>> callback) {
-		super(callback);
+		this.callback = callback;
+		if (callback == null) {
+			throw new NullPointerException("\"callback\" can't to be null");
+		}
 	}
 	
 	/**

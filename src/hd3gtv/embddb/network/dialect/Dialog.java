@@ -16,22 +16,22 @@
 */
 package hd3gtv.embddb.network.dialect;
 
+import java.net.InetAddress;
 import java.util.ArrayList;
 
 import hd3gtv.embddb.network.RequestBlock;
 
+/**
+ * All new Dialogs must be declared to PoolManager
+ */
 public interface Dialog {
 	
 	public ClientSayToServer getClientSentenceToSendToServer();
 	
-	/**
-	 * @param send Anthing sended to server.
-	 * @return Null if send is not *this* request (as speed as you can).
-	 */
-	public ServerSayToClient getServerSentenceToSendToClient(ArrayList<RequestBlock> send);
+	public ServerSayToClient getServerSentenceToSendToClient(InetAddress client, ArrayList<RequestBlock> send);
 	
 	public boolean checkIfClientToServerRequestIsForThis(ArrayList<RequestBlock> blocks);
 	
-	public boolean checkIfServerToClientRequestIsForThis(ArrayList<RequestBlock> blocks);
+	public boolean checkIfServerToClientResponseIsForThis(ArrayList<RequestBlock> blocks);
 	
 }

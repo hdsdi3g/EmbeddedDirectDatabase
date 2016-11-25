@@ -51,6 +51,14 @@ public final class RequestBlock {
 		len = datas.length;
 	}
 	
+	public RequestBlock(String name, byte[] datas) {
+		this(name, datas, System.currentTimeMillis());
+	}
+	
+	public RequestBlock(String name, String datas) {
+		this(name, datas.getBytes(Protocol.UTF8), System.currentTimeMillis());
+	}
+	
 	void exportToZip(ZipOutputStream zipdatas) throws IOException {
 		ZipEntry entry = new ZipEntry(name);
 		entry.setTime(date);
@@ -100,4 +108,7 @@ public final class RequestBlock {
 		return name;
 	}
 	
+	public String getDatasAsString() {
+		return new String(datas, 0, len, Protocol.UTF8);
+	}
 }

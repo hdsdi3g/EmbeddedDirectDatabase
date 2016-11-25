@@ -16,14 +16,12 @@
 */
 package hd3gtv.embddb.network;
 
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
@@ -34,15 +32,14 @@ public class EDDBClient {
 	
 	private static final Logger log = Logger.getLogger(EDDBClient.class);
 	
-	private InetAddress server_addr;
-	private int tcp_server_port = 9160;
+	private InetSocketAddress server;
 	private AsynchronousSocketChannel channel;
 	private Protocol protocol;
 	
-	public EDDBClient(Protocol protocol, InetAddress server_addr) throws Exception {
-		this.server_addr = server_addr;
-		if (server_addr == null) {
-			throw new NullPointerException("\"server_addr\" can't to be null");
+	public EDDBClient(Protocol protocol, InetSocketAddress server) throws Exception {
+		this.server = server;
+		if (server == null) {
+			throw new NullPointerException("\"server\" can't to be null");
 		}
 		this.protocol = protocol;
 		if (protocol == null) {
@@ -55,60 +52,16 @@ public class EDDBClient {
 		channel = AsynchronousSocketChannel.open();
 	}
 	
-	// TODO a ping request (get time ?)
-	
 	/**
-	 * Non blocking.
+	 * Blocking.
 	 */
-	public void connect(final Callable<Void> connected, Logger callable_log) throws Exception {
-		log.debug("Try to connect to server " + server_addr);
-		
-		channel.connect(new InetSocketAddress(server_addr, tcp_server_port), null, new CompletionHandler<Void, Void>() {
-			
-			/**
-			 * On connect
-			 */
-			public void completed(Void result, Void attach) {
-				log.debug("Connected on server " + server_addr);
-				
-				try {
-					ArrayList<RequestBlock> hello = new ArrayList<>(Arrays.asList(protocol.createHello()));
-					
-					/**
-					 * Do Hello request
-					 */
-					log.debug("Do Hello request to " + server_addr);
-					request(hello, (response_blocks, response_server) -> {
-						/**
-						 * On response
-						 */
-						log.info("Server " + response_server + " respond: " + response_blocks.size());// TODO check if hello/welcome is correct.
-						
-						try {
-							/**
-							 * Do the callback
-							 */
-							connected.call();
-						} catch (Exception ce) {
-							callable_log.error("Error during callbacks", ce);
-							// TODO throw somewhere
-						}
-					});
-				} catch (Exception e) {
-					log.error("Can't connect correctly", e);
-					// TODO throw somewhere
-				}
-			}
-			
-			public void failed(Throwable e, Void attach) {
-				log.error("Can't operate as client", e);
-			}
-			
-		});
+	public void connect() throws InterruptedException, ExecutionException {
+		log.debug("Try to connect to server " + server);
+		channel.connect(server).get();
 	}
 	
 	/**
-	 * Be polite, do a first connect() before requests.
+	 * Do a first connect() before requests.
 	 */
 	public void request(ArrayList<RequestBlock> request, ServerResponse response) throws Exception {
 		if (log.isTraceEnabled()) {
@@ -116,7 +69,7 @@ public class EDDBClient {
 			request.forEach(block -> {
 				all_size.addAndGet(block.getLen());
 			});
-			log.trace("Request to server " + server_addr + " " + all_size.get() + " bytes of datas on " + request.size() + " block(s).");
+			log.trace("Request to server " + server + " " + all_size.get() + " bytes of datas on " + request.size() + " block(s).");
 		}
 		
 		byte[] raw = protocol.compressBlocks(request);
@@ -136,19 +89,19 @@ public class EDDBClient {
 			public void completed(Integer result, Void attachment) {
 				try {
 					if (log.isTraceEnabled()) {
-						log.trace("Server " + server_addr + " as correctly recevied datas. Now, wait its response...");
+						log.trace("Server " + server + " as correctly recevied datas. Now, wait its response...");
 					}
 					
 					ByteBuffer read_buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
 					int size = channel.read(read_buffer).get();
 					if (size < 1) {
-						log.trace("No datas sended by the server " + server_addr + " on the response");
+						log.trace("No datas sended by the server " + server + " on the response");
 						return;
 					}
 					read_buffer.flip();
 					
 					if (log.isTraceEnabled()) {
-						log.trace("Response recevied from the server " + server_addr + " " + size + " bytes");
+						log.trace("Response recevied from the server " + server + " " + size + " bytes");
 					}
 					
 					if (Protocol.DISPLAY_HEXDUMP) {
@@ -181,12 +134,12 @@ public class EDDBClient {
 						blocks.forEach(block -> {
 							all_size.addAndGet(block.getLen());
 						});
-						log.trace("The response from the server " + server_addr + "  is extracted. Total size: " + all_size.get() + " bytes on " + blocks.size() + " block(s).");
+						log.trace("The response from the server " + server + "  is extracted. Total size: " + all_size.get() + " bytes on " + blocks.size() + " block(s).");
 					}
 					
-					response.onServerRespond(blocks, server_addr);
+					response.onServerRespond(blocks, server.getAddress());
 				} catch (Exception e) {
-					log.error("Can't communicate with the server " + server_addr, e);// TODO throw somewhere
+					log.error("Can't communicate with the server " + server, e);// TODO throw somewhere
 				}
 			}
 			
@@ -202,10 +155,6 @@ public class EDDBClient {
 			// TODO disconnect with protocol
 			channel.close();
 		}
-	}
-	
-	public void setTcpServerPort(int tcp_server_port) {
-		this.tcp_server_port = tcp_server_port;
 	}
 	
 }

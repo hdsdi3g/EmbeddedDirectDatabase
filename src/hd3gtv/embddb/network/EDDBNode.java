@@ -32,7 +32,7 @@ public class EDDBNode {
 	
 	private static final Logger log = Logger.getLogger(EDDBNode.class);
 	
-	private int tcp_server_port = 9160;
+	private int tcp_server_port;
 	private final AsynchronousServerSocketChannel server;
 	private Protocol protocol;
 	private ServerRequestEntry request_callbacks;
@@ -49,6 +49,8 @@ public class EDDBNode {
 		
 		server = AsynchronousServerSocketChannel.open();
 		// server.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+		tcp_server_port = protocol.getDefaultTCPPort();
+		
 		server.bind(new InetSocketAddress(tcp_server_port));
 	}
 	

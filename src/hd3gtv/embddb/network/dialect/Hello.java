@@ -16,6 +16,7 @@
 */
 package hd3gtv.embddb.network.dialect;
 
+import java.io.IOException;
 import java.util.ArrayList;
 
 import hd3gtv.embddb.network.Protocol;
@@ -30,9 +31,16 @@ public class Hello extends ClientSayToServer {
 	}
 	
 	public ArrayList<RequestBlock> getBlocksToSendToServer() {
-		long date = System.currentTimeMillis();
-		
-		return ArrayWrapper.asArrayList(new RequestBlock("hello", "Hello from EmbDDB".getBytes(Protocol.UTF8), date), new RequestBlock("version", Version.V1.toString().getBytes(Protocol.UTF8), date));
+		return ArrayWrapper.asArrayList(new RequestBlock("hello", "Hello from EmbDDB"), new RequestBlock("version", Protocol.VERSION.toString()));
+	}
+	
+	public void checkMatchVersionWithClient(Protocol protocol, ArrayList<RequestBlock> blocks) throws IOException {
+		if (blocks.size() != 2) {
+			throw new IOException("Bad block count " + blocks.size());
+		}
+		if (Version.resolveFromString(new String(blocks.get(1).getDatas())) != Protocol.VERSION) {
+			throw new IOException("Bad version " + new String(blocks.get(1).getDatas()));
+		}
 	}
 	
 }

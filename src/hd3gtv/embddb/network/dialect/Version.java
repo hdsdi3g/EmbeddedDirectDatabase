@@ -27,4 +27,8 @@ public enum Version {
 		return String.valueOf(this.ordinal() + 1);
 	};
 	
+	public static Version resolveFromString(String value) {
+		return values()[Integer.parseInt(value) - 1];
+	}
+	
 }
