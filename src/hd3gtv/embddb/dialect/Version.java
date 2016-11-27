@@ -14,24 +14,21 @@
  * Copyright (C) hdsdi3g for hd3g.tv 24 nov. 2016
  * 
 */
-package hd3gtv.embddb.network.dialect;
+package hd3gtv.embddb.dialect;
 
-import java.net.InetAddress;
-import java.util.ArrayList;
-
-import hd3gtv.embddb.network.RequestBlock;
-
-/**
- * All new Dialogs must be declared to PoolManager
- */
-public interface Dialog {
+public enum Version {
 	
-	public ClientSayToServer getClientSentenceToSendToServer();
+	V1;
 	
-	public ServerSayToClient getServerSentenceToSendToClient(InetAddress client, ArrayList<RequestBlock> send);
+	/**
+	 * @return 1
+	 */
+	public String toString() {
+		return String.valueOf(this.ordinal() + 1);
+	};
 	
-	public boolean checkIfClientToServerRequestIsForThis(ArrayList<RequestBlock> blocks);
-	
-	public boolean checkIfServerToClientResponseIsForThis(ArrayList<RequestBlock> blocks);
+	public static Version resolveFromString(String value) {
+		return values()[Integer.parseInt(value) - 1];
+	}
 	
 }

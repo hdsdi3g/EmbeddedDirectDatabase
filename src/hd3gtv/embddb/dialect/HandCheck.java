@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 24 nov. 2016
  * 
 */
-package hd3gtv.embddb.network.dialect;
+package hd3gtv.embddb.dialect;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -22,15 +22,16 @@ import java.util.ArrayList;
 
 import org.apache.log4j.Logger;
 
+import hd3gtv.embddb.ClientUnit;
 import hd3gtv.embddb.network.Protocol;
 import hd3gtv.embddb.network.RequestBlock;
+import hd3gtv.embddb.tools.ArrayWrapper;
 
-public class HandCheck implements Dialog {
+public class HandCheck implements Dialog<Void, String> {
 	
 	private static Logger log = Logger.getLogger(HandCheck.class);
 	
 	private Hello hello;
-	private Welcome welcome;
 	private Protocol protocol;
 	
 	public HandCheck(Protocol protocol) {
@@ -39,14 +40,19 @@ public class HandCheck implements Dialog {
 			throw new NullPointerException("\"protocol\" can't to be null");
 		}
 		
-		hello = new Hello(c -> {
-			System.out.println(c.get(0).getName()); // TODO callback if it's ok.
+		hello = new Hello(blocks -> {
+			if (blocks.size() != 2) {
+				throw new IOException("Bad block count " + blocks.size());
+			}
+			if (Version.resolveFromString(new String(blocks.get(1).getDatas())) != Protocol.VERSION) {
+				throw new IOException("Bad version " + new String(blocks.get(1).getDatas()));
+			}
+			
+			return blocks.get(0).getDatasAsString();
 		});
-		
-		welcome = new Welcome();
 	}
 	
-	public ClientSayToServer getClientSentenceToSendToServer() {
+	public ClientSayToServer<String> getClientSentenceToSendToServer(ClientUnit client, Void request) {
 		return hello;
 	}
 	
@@ -57,26 +63,24 @@ public class HandCheck implements Dialog {
 			log.warn("Mismatch protocol versions with distant client " + client, e);
 			return new ErrorResponse("Mismatch protocol versions");
 		}
-		return welcome;
+		return () -> {
+			return ArrayWrapper.asArrayList(new RequestBlock("welcome", "Welcome from EmbDDB"), new RequestBlock("version", Protocol.VERSION.toString()));
+		};
 	}
 	
 	/**
 	 * Should match with getClientSentenceToSendToServer
 	 */
-	public boolean checkIfClientToServerRequestIsForThis(ArrayList<RequestBlock> blocks) {
+	public boolean checkIfClientRequestIsForThisServer(ArrayList<RequestBlock> blocks) {
 		return blocks.get(0).getName().equals("hello");
 	}
 	
 	/**
 	 * Should match with getServerSentenceToSendToClient
 	 */
-	public boolean checkIfServerToClientResponseIsForThis(ArrayList<RequestBlock> blocks) {
+	public boolean checkIfServerResponseIsForThisClient(ArrayList<RequestBlock> blocks) {
 		String name = blocks.get(0).getName();
 		return name.equals("welcome") | name.equals("error");
-	}
-	
-	public Welcome getWelcome() {
-		return welcome;
 	}
 	
 }

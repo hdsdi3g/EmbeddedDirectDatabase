@@ -17,38 +17,50 @@
 package hd3gtv.embddb;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
+import hd3gtv.embddb.dialect.Dialog;
+import hd3gtv.embddb.dialect.HandCheck;
+import hd3gtv.embddb.dialect.PingPongTime;
+import hd3gtv.embddb.network.EDDBClient;
 import hd3gtv.embddb.network.EDDBNode;
 import hd3gtv.embddb.network.Protocol;
 import hd3gtv.embddb.network.RequestBlock;
-import hd3gtv.embddb.network.dialect.Dialog;
-import hd3gtv.embddb.network.dialect.HandCheck;
+import hd3gtv.internaltaskqueue.ITQueue;
 
 public class PoolManager {
 	
 	private static Logger log = Logger.getLogger(PoolManager.class);
 	
-	private ArrayList<Dialog> dialogs;
-	private HashMap<Class<? extends Dialog>, Dialog> dialogs_by_class;
+	private ArrayList<Dialog<?, ?>> dialogs;
+	private HashMap<Class<?>, Dialog<?, ?>> dialogs_by_class;
 	
 	private EDDBNode local_server;
 	private ArrayList<ClientUnit> clients;
 	private Protocol protocol;
 	
-	public PoolManager() throws GeneralSecurityException, UnsupportedEncodingException {
+	private ITQueue queue;
+	private ActivityScheduler<ClientUnit> scheduler;
+	
+	public PoolManager(ITQueue queue) throws GeneralSecurityException, IOException {
+		this.queue = queue;
+		if (queue == null) {
+			throw new NullPointerException("\"queue\" can't to be null");
+		}
+		
 		protocol = new Protocol("test"); // TODO conf
 		
 		dialogs = new ArrayList<>();
 		dialogs.add(new HandCheck(protocol));
+		dialogs.add(new PingPongTime());
 		
 		dialogs_by_class = new HashMap<>(dialogs.size());
 		dialogs.forEach(d -> {
@@ -56,6 +68,9 @@ public class PoolManager {
 		});
 		
 		clients = new ArrayList<>();
+		scheduler = new ActivityScheduler<>();
+		
+		startServer();
 	}
 	
 	Protocol getProtocol() {
@@ -74,7 +89,16 @@ public class PoolManager {
 		local_server.start();
 	}
 	
-	// TODO close all
+	public void closeAll() {
+		try {
+			local_server.stop();
+		} catch (IOException e) {
+			log.error("Can't stop local server");
+		}
+		clients.forEach(c -> {
+			c.close();
+		});
+	}
 	
 	/**
 	 * Client will be add to current list if can correctly connect to server.
@@ -91,26 +115,49 @@ public class PoolManager {
 	}
 	
 	synchronized void declareClient(ClientUnit client) {
+		log.debug("Add client " + client);
+		
+		scheduler.add(client, () -> {
+			queue.addToQueue(() -> {
+				client.doPingPong();
+			}, e -> {
+				log.error("Can't prepare Ping pong request");
+			});
+		}, 5000, 1000, TimeUnit.MILLISECONDS);
+		
 		clients.add(client);
 	}
 	
 	synchronized void removeClient(ClientUnit client) {
+		log.debug("Remove client " + client);
+		scheduler.remove(client);
 		clients.remove(client);
 	}
 	
-	Dialog getByClass(Class<? extends Dialog> dialog_class) {
+	public synchronized void removeClient(EDDBClient client) {
+		log.debug("Remove client " + client);
+		clients.removeIf(p -> {
+			if (p.isThisInternalClient(client)) {
+				scheduler.remove(p);
+				return true;
+			}
+			return false;
+		});
+	}
+	
+	Dialog<?, ?> getByClass(Class<? extends Dialog<?, ?>> dialog_class) {
 		return dialogs_by_class.get(dialog_class);
 	}
 	
-	Dialog getClientToServerRequestFirstValid(ArrayList<RequestBlock> blocks) throws NoSuchElementException {
+	Dialog<?, ?> getClientToServerRequestFirstValid(ArrayList<RequestBlock> blocks) throws NoSuchElementException {
 		return dialogs.stream().filter(p -> {
-			return p.checkIfClientToServerRequestIsForThis(blocks);
+			return p.checkIfClientRequestIsForThisServer(blocks);
 		}).findFirst().get();
 	}
 	
-	Dialog getServerToClientResponseFirstValid(ArrayList<RequestBlock> blocks) throws NoSuchElementException {
+	Dialog<?, ?> getServerToClientResponseFirstValid(ArrayList<RequestBlock> blocks) throws NoSuchElementException {
 		return dialogs.stream().filter(p -> {
-			return p.checkIfServerToClientResponseIsForThis(blocks);
+			return p.checkIfServerResponseIsForThisClient(blocks);
 		}).findFirst().get();
 	}
 	

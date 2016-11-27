@@ -14,34 +14,25 @@
  * Copyright (C) hdsdi3g for hd3g.tv 24 nov. 2016
  * 
 */
-package hd3gtv.embddb.network.dialect;
+package hd3gtv.embddb.dialect;
 
+import java.net.InetAddress;
 import java.util.ArrayList;
 
+import hd3gtv.embddb.ClientUnit;
 import hd3gtv.embddb.network.RequestBlock;
-import hd3gtv.embddb.tools.CallableResponder;
 
-public abstract class ClientSayToServer {
+/**
+ * All new Dialogs must be declared to PoolManager
+ */
+public interface Dialog<R, O> {
 	
-	protected final CallableResponder<ArrayList<RequestBlock>> callback;
+	public ClientSayToServer<O> getClientSentenceToSendToServer(ClientUnit client, R request);
 	
-	public ClientSayToServer(CallableResponder<ArrayList<RequestBlock>> callback) {
-		this.callback = callback;
-		if (callback == null) {
-			throw new NullPointerException("\"callback\" can't to be null");
-		}
-	}
+	public ServerSayToClient getServerSentenceToSendToClient(InetAddress client, ArrayList<RequestBlock> send);
 	
-	/**
-	 * Server side.
-	 */
-	public final void serverReceviedBlocks(ArrayList<RequestBlock> blocks) {
-		callback.onResponds(blocks);
-	}
+	public boolean checkIfClientRequestIsForThisServer(ArrayList<RequestBlock> blocks);
 	
-	/**
-	 * Client side.
-	 */
-	public abstract ArrayList<RequestBlock> getBlocksToSendToServer();
+	public boolean checkIfServerResponseIsForThisClient(ArrayList<RequestBlock> blocks);
 	
 }

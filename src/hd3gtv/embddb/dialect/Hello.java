@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 24 nov. 2016
  * 
 */
-package hd3gtv.embddb.network.dialect;
+package hd3gtv.embddb.dialect;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -22,11 +22,11 @@ import java.util.ArrayList;
 import hd3gtv.embddb.network.Protocol;
 import hd3gtv.embddb.network.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
-import hd3gtv.embddb.tools.CallableResponder;
+import hd3gtv.internaltaskqueue.ParametedWithResultProcedure;
 
-public class Hello extends ClientSayToServer {
+public class Hello extends ClientSayToServer<String> {
 	
-	public Hello(CallableResponder<ArrayList<RequestBlock>> callback) {
+	public Hello(ParametedWithResultProcedure<ArrayList<RequestBlock>, String> callback) {
 		super(callback);
 	}
 	

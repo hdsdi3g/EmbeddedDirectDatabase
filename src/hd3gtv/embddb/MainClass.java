@@ -22,6 +22,8 @@ import java.security.Security;
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import hd3gtv.internaltaskqueue.ITQueue;
+
 public class MainClass {
 	
 	private static Logger log = Logger.getLogger(MainClass.class);
@@ -29,12 +31,12 @@ public class MainClass {
 	public static void main(String[] args) throws Exception {
 		Security.addProvider(new BouncyCastleProvider());
 		
-		PoolManager poolmanager = new PoolManager();
-		poolmanager.startServer();
+		ITQueue itqueue = new ITQueue(2);
+		
+		PoolManager poolmanager = new PoolManager(itqueue);
+		
 		Thread.sleep(50);
 		poolmanager.createClient(InetAddress.getByName("127.0.0.1")).doHandCheck();
-		
-		// TODO do time regular checks
 		
 		while (true) {
 			Thread.sleep(10);

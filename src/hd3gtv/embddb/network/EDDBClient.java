@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
+import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.tools.Hexview;
 
 public class EDDBClient {
@@ -35,6 +36,7 @@ public class EDDBClient {
 	private InetSocketAddress server;
 	private AsynchronousSocketChannel channel;
 	private Protocol protocol;
+	private PoolManager pool;
 	
 	public EDDBClient(Protocol protocol, InetSocketAddress server) throws Exception {
 		this.server = server;
@@ -48,8 +50,16 @@ public class EDDBClient {
 		open();
 	}
 	
+	public String toString() {
+		return getClass().getSimpleName() + "_" + server;
+	}
+	
 	public void open() throws Exception {
 		channel = AsynchronousSocketChannel.open();
+	}
+	
+	public void setPool(PoolManager pool) {
+		this.pool = pool;
 	}
 	
 	/**
@@ -82,6 +92,8 @@ public class EDDBClient {
 			Hexview.tracelog(temp, log, "Crypted sended content to server");
 			send_buffer.flip();
 		}
+		
+		EDDBClient this_client = this;
 		
 		channel.write(send_buffer, null, new CompletionHandler<Integer, Void>() {
 			
@@ -139,12 +151,18 @@ public class EDDBClient {
 					
 					response.onServerRespond(blocks, server.getAddress());
 				} catch (Exception e) {
-					log.error("Can't communicate with the server " + server, e);// TODO throw somewhere
+					log.error("Can't communicate with the server " + server, e);
+					if (pool != null) {
+						pool.removeClient(this_client);
+					}
 				}
 			}
 			
 			public void failed(Throwable e, Void attachment) {
-				log.error("Can't send to server", e); // TODO throw somewhere
+				log.error("Can't send to server", e);
+				if (pool != null) {
+					pool.removeClient(this_client);
+				}
 			}
 			
 		});

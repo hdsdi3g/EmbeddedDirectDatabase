@@ -11,24 +11,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 24 nov. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 13 nov. 2016
  * 
 */
-package hd3gtv.embddb.network.dialect;
+package hd3gtv.internaltaskqueue;
 
-public enum Version {
+@FunctionalInterface
+public interface Procedure {
 	
-	V1;
-	
-	/**
-	 * @return 1
-	 */
-	public String toString() {
-		return String.valueOf(this.ordinal() + 1);
-	};
-	
-	public static Version resolveFromString(String value) {
-		return values()[Integer.parseInt(value) - 1];
-	}
+	public void process() throws Exception;
 	
 }

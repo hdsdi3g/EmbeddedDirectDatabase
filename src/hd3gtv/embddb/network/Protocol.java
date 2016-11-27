@@ -42,7 +42,7 @@ import javax.crypto.spec.SecretKeySpec;
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.network.dialect.Version;
+import hd3gtv.embddb.dialect.Version;
 import hd3gtv.embddb.tools.Hexview;
 
 public class Protocol {
