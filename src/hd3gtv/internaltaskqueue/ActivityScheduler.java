@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 27 nov. 2016
  * 
 */
-package hd3gtv.embddb;
+package hd3gtv.internaltaskqueue;
 
 import java.util.ArrayList;
 import java.util.concurrent.Executors;
@@ -23,8 +23,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
-
-import hd3gtv.internaltaskqueue.Procedure;
 
 public class ActivityScheduler<T> {
 	

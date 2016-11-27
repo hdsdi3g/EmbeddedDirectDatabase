@@ -34,6 +34,7 @@ import hd3gtv.embddb.network.EDDBClient;
 import hd3gtv.embddb.network.EDDBNode;
 import hd3gtv.embddb.network.Protocol;
 import hd3gtv.embddb.network.RequestBlock;
+import hd3gtv.internaltaskqueue.ActivityScheduler;
 import hd3gtv.internaltaskqueue.ITQueue;
 
 public class PoolManager {
