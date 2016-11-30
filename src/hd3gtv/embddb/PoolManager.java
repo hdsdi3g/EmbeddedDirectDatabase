@@ -70,15 +70,13 @@ public class PoolManager {
 		
 		clients = new ArrayList<>();
 		scheduler = new ActivityScheduler<>();
-		
-		startServer();
 	}
 	
 	Protocol getProtocol() {
 		return protocol;
 	}
 	
-	public void startServer() throws IOException {
+	public void startServer(InetSocketAddress listen) throws IOException {
 		local_server = new EDDBNode(protocol, (blocks, source) -> {
 			try {
 				return getClientToServerRequestFirstValid(blocks).getServerSentenceToSendToClient(source, blocks).getBlocksToSendToClient();
@@ -87,7 +85,14 @@ public class PoolManager {
 			}
 			return null;
 		});
+		if (listen != null) {
+			local_server.setListenAddr(listen);
+		}
 		local_server.start();
+	}
+	
+	public void startServer() throws IOException {
+		startServer(null);
 	}
 	
 	public void closeAll() {

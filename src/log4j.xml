@@ -39,6 +39,14 @@
 	</appender>-->
 
 	<!-- Personalized filter levels for some loggers -->
+	
+	<logger name="hd3gtv.embddb.network.EDDBNode">
+		<level value="DEBUG" />
+	</logger>
+	<logger name="hd3gtv.embddb.network.EDDBClient">
+		<level value="DEBUG" />
+	</logger>
+	
 	<logger name="hd3gtv">
 		<level value="TRACE" />
 	</logger>

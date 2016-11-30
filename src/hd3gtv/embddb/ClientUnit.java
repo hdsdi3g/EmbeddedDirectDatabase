@@ -19,6 +19,7 @@ package hd3gtv.embddb;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -123,23 +124,37 @@ public class ClientUnit {
 		});
 	}
 	
+	public static final long MAX_TOLERANCE_DELTA_TIME_WITH_SERVER = TimeUnit.SECONDS.toMillis(30);
+	
+	/**
+	 * Network jitter filter
+	 */
+	public static final long MIN_TOLERANCE_DELTA_TIME_WILL_UPDATE_CHANGE = TimeUnit.MILLISECONDS.toMillis(50);
+	
 	public void doPingPong() {
 		internalRequest(PingPongTime.class, UUID.randomUUID(), server_date -> {
 			if (server_date == null) {
-				throw new IOException("Error with UUID, network protocol is buggy");
+				throw new IOException("Error with UUID, network protocol is buggy !");
 			}
 			long new_delay = server_date - System.currentTimeMillis();
 			
-			if (Math.abs(server_delta_time - new_delay) < 5) {
+			if (Math.abs(server_delta_time - new_delay) < MIN_TOLERANCE_DELTA_TIME_WILL_UPDATE_CHANGE) {
 				return;
 			}
 			
 			if (log.isTraceEnabled()) {
 				log.trace("Server " + server + " delay: " + server_delta_time + " ms before, now is " + new_delay + " ms");
 			}
+			
 			server_delta_time = new_delay;
 			
-			// TODO add warn if big delay time
+			if ((server_delta_time != new_delay) && (Math.abs(server_delta_time) > MAX_TOLERANCE_DELTA_TIME_WITH_SERVER)) {
+				log.warn("Big delay with server " + server + ": " + server_delta_time
+						+ " ms. Please check the NTP setup with this host and the server ! In the meantime, this client will be disconned will this server.");
+				pool.removeClient(this);
+				return;
+			}
+			
 		}, e -> {
 			log.error("Can't do Ping with server " + server, e);
 			pool.removeClient(this);
