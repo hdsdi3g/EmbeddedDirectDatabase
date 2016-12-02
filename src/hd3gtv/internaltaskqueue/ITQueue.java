@@ -22,6 +22,7 @@ import java.util.NoSuchElementException;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import hd3gtv.embddb.tools.InteractiveConsoleMode;
 import hd3gtv.tools.StoppableThread;
 
 public class ITQueue {
@@ -141,6 +142,21 @@ public class ITQueue {
 			}
 		}
 		
+		public String toString() {
+			StringBuilder sb = new StringBuilder();
+			
+			if (item != null) {
+				sb.append("Item " + item.getClass() + " [" + item.toString() + "] ");
+			}
+			if (process != null) {
+				sb.append("Process " + process.getClass() + " ");
+			}
+			if (result != null) {
+				sb.append("Result " + result.getClass() + " [" + result.toString() + "]");
+			}
+			
+			return sb.toString();
+		}
 	}
 	
 	public void waitToStopAll() {
@@ -222,6 +238,32 @@ public class ITQueue {
 				stoppableSleep(10);
 			}
 		}
+		
+	}
+	
+	public void setConsole(InteractiveConsoleMode console) {
+		if (console == null) {
+			throw new NullPointerException("\"console\" can't to be null");
+		}
+		
+		console.addOrder("ql", "Queue list", "Display actual queue list", ITQueue.class, param -> {
+			if (pending_tasks.isEmpty()) {
+				System.out.println("No waiting task to display in queue.");
+			} else {
+				System.out.println("Display " + pending_tasks.size() + " waiting tasks");
+				pending_tasks.forEach(pt -> {
+					System.out.println(pt.toString());
+				});
+			}
+			
+			executors.forEach(ex -> {
+				if (ex.selected_task != null) {
+					System.out.println(ex.getName() + ": " + ex.selected_task);
+				} else {
+					System.out.println(ex.getName() + ": " + "Not in processing.");
+				}
+			});
+		});
 		
 	}
 	

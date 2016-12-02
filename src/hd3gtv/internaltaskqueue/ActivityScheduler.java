@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
+import hd3gtv.embddb.tools.InteractiveConsoleMode;
+
 public class ActivityScheduler<T> {
 	
 	private static Logger log = Logger.getLogger(ActivityScheduler.class);
@@ -99,6 +101,13 @@ public class ActivityScheduler<T> {
 			return reference.equals(compare);
 		}
 		
+	}
+	
+	public void setConsole(InteractiveConsoleMode console) {
+		if (console == null) {
+			throw new NullPointerException("\"console\" can't to be null");
+		}
+		// TODO display in console
 	}
 	
 }

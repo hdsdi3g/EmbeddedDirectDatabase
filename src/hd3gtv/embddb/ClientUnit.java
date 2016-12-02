@@ -161,4 +161,14 @@ public class ClientUnit {
 		});
 	}
 	
+	public String getActualStatus() {
+		StringBuilder sb = new StringBuilder();
+		sb.append("Server: ");
+		sb.append(server.getHostString() + "/" + server.getHostName() + ":" + server.getPort());
+		sb.append(", last delta time: ");
+		sb.append(server_delta_time);
+		sb.append(" ms.");
+		return sb.toString();
+	}
+	
 }

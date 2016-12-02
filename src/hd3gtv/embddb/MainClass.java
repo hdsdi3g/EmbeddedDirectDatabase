@@ -40,7 +40,6 @@ public class MainClass {
 			}
 		}
 		
-		// TODO interactive mode with keyboard in CLI
 		// TODO do the connection client pool (list all actual clients, and display properties)
 		// TODO get the client connected list by server and share the list (auto-discover)
 		// TODO get the auto-discover list by client, and update the actual connection pool
@@ -50,9 +49,7 @@ public class MainClass {
 		Thread.sleep(50);
 		poolmanager.createClient(InetAddress.getByName("127.0.0.1")).doHandCheck();
 		
-		while (true) {
-			Thread.sleep(10);
-		}
+		poolmanager.startConsole();
 	}
 	
 }

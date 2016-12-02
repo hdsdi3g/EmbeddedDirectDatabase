@@ -23,10 +23,12 @@ import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.util.ArrayList;
+import java.util.HashSet;
 
 import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.tools.Hexview;
+import hd3gtv.embddb.tools.InteractiveConsoleMode;
 
 public class EDDBNode {
 	
@@ -36,6 +38,7 @@ public class EDDBNode {
 	private final AsynchronousServerSocketChannel server;
 	private Protocol protocol;
 	private ServerRequestEntry request_callbacks;
+	private volatile HashSet<InetSocketAddress> connected_clients;
 	
 	public EDDBNode(Protocol protocol, ServerRequestEntry request_callbacks) throws IOException {
 		this.protocol = protocol;
@@ -50,6 +53,20 @@ public class EDDBNode {
 		server = AsynchronousServerSocketChannel.open();
 		// server.setOption(StandardSocketOptions.SO_REUSEADDR, true);
 		listen = new InetSocketAddress(protocol.getDefaultTCPPort());
+		
+		connected_clients = new HashSet<>();
+	}
+	
+	public void setConsole(InteractiveConsoleMode console) {
+		if (console == null) {
+			throw new NullPointerException("\"console\" can't to be null");
+		}
+		console.addOrder("cl", "Connected client list", "Display the connected client list (as server)", EDDBNode.class, param -> {
+			System.out.println("Display " + connected_clients.size() + " connected client list:");
+			connected_clients.forEach(client -> {
+				System.out.println("Client: " + client.getHostString() + "/" + client.getHostName() + ":" + client.getPort());
+			});
+		});
 	}
 	
 	public void start() throws IOException {
@@ -70,6 +87,7 @@ public class EDDBNode {
 				server.accept(server, this);
 				
 				log.info("Client request " + clientAddr.getHostString());
+				connected_clients.add(clientAddr);
 				
 				ByteBuffer buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
 				ByteBuffer uncrypted_buffer;
@@ -85,6 +103,7 @@ public class EDDBNode {
 					if (size < 1) {
 						buffer.clear();
 						client.close();
+						connected_clients.remove(clientAddr);
 						return;
 					}
 					buffer.flip();
@@ -118,6 +137,7 @@ public class EDDBNode {
 						response_blocks = request_callbacks.onRequest(protocol.decompressBlocks(uncrypted_content), clientAddr.getAddress());
 					} catch (WantToCloseLink wtcl) {
 						client.close();
+						connected_clients.remove(clientAddr);
 						return;
 					}
 					
@@ -146,8 +166,13 @@ public class EDDBNode {
 					
 					client.write(uncrypted_buffer).get();
 				}
+				
 			} catch (Exception e) {
 				log.error("Socket error", e);
+				try {
+					connected_clients.remove((InetSocketAddress) client.getRemoteAddress());
+				} catch (IOException e1) {
+				}
 			}
 		}
 		

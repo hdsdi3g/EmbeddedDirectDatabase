@@ -34,6 +34,7 @@ import hd3gtv.embddb.network.EDDBClient;
 import hd3gtv.embddb.network.EDDBNode;
 import hd3gtv.embddb.network.Protocol;
 import hd3gtv.embddb.network.RequestBlock;
+import hd3gtv.embddb.tools.InteractiveConsoleMode;
 import hd3gtv.internaltaskqueue.ActivityScheduler;
 import hd3gtv.internaltaskqueue.ITQueue;
 
@@ -50,12 +51,16 @@ public class PoolManager {
 	
 	private ITQueue queue;
 	private ActivityScheduler<ClientUnit> scheduler;
+	private InteractiveConsoleMode console;
 	
 	public PoolManager(ITQueue queue) throws GeneralSecurityException, IOException {
+		console = new InteractiveConsoleMode();
+		
 		this.queue = queue;
 		if (queue == null) {
 			throw new NullPointerException("\"queue\" can't to be null");
 		}
+		queue.setConsole(console);
 		
 		protocol = new Protocol("test"); // TODO conf
 		
@@ -70,6 +75,7 @@ public class PoolManager {
 		
 		clients = new ArrayList<>();
 		scheduler = new ActivityScheduler<>();
+		scheduler.setConsole(console);
 	}
 	
 	Protocol getProtocol() {
@@ -88,6 +94,7 @@ public class PoolManager {
 		if (listen != null) {
 			local_server.setListenAddr(listen);
 		}
+		local_server.setConsole(console);
 		local_server.start();
 	}
 	
@@ -165,6 +172,24 @@ public class PoolManager {
 		return dialogs.stream().filter(p -> {
 			return p.checkIfServerResponseIsForThisClient(blocks);
 		}).findFirst().get();
+	}
+	
+	public InteractiveConsoleMode getConsole() {
+		return console;
+	}
+	
+	/**
+	 * Blocking !
+	 */
+	public void startConsole() {
+		console.addOrder("sl", "Connected servers list", "Display the connected server list (as client)", PoolManager.class, param -> {
+			System.out.println("Display " + clients.size() + " connected servers list:");
+			clients.forEach(client -> {
+				System.out.println(client.getActualStatus());
+			});
+		});
+		
+		console.waitActions();
 	}
 	
 }
