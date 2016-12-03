@@ -17,7 +17,6 @@
 package hd3gtv.embddb;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
@@ -37,6 +36,7 @@ import hd3gtv.embddb.network.RequestBlock;
 import hd3gtv.embddb.tools.InteractiveConsoleMode;
 import hd3gtv.internaltaskqueue.ActivityScheduler;
 import hd3gtv.internaltaskqueue.ITQueue;
+import hd3gtv.tools.AddressMaster;
 
 public class PoolManager {
 	
@@ -52,8 +52,14 @@ public class PoolManager {
 	private ITQueue queue;
 	private ActivityScheduler<ClientUnit> scheduler;
 	private InteractiveConsoleMode console;
+	private AddressMaster addr_master;
 	
-	public PoolManager(ITQueue queue) throws GeneralSecurityException, IOException {
+	private boolean enable_loop_clients;
+	
+	public PoolManager(ITQueue queue, String master_password_key) throws GeneralSecurityException, IOException {
+		enable_loop_clients = false;
+		
+		addr_master = new AddressMaster();
 		console = new InteractiveConsoleMode();
 		
 		this.queue = queue;
@@ -62,7 +68,7 @@ public class PoolManager {
 		}
 		queue.setConsole(console);
 		
-		protocol = new Protocol("test"); // TODO conf
+		protocol = new Protocol(master_password_key);
 		
 		dialogs = new ArrayList<>();
 		dialogs.add(new HandCheck(protocol));
@@ -80,6 +86,10 @@ public class PoolManager {
 	
 	Protocol getProtocol() {
 		return protocol;
+	}
+	
+	public AddressMaster getAddressMaster() {
+		return addr_master;
 	}
 	
 	public void startServer(InetSocketAddress listen) throws IOException {
@@ -113,17 +123,38 @@ public class PoolManager {
 		});
 	}
 	
+	public void setEnableLoopClients(boolean enable_loop_clients) {
+		this.enable_loop_clients = enable_loop_clients;
+		if (enable_loop_clients) {
+			if (log.isDebugEnabled()) {
+				log.debug("Set enable_loop_clients");
+			} else {
+				log.warn("Set a dangerous param: enable_loop_clients");
+			}
+		}
+	}
+	
 	/**
-	 * Client will be add to current list if can correctly connect to server.
+	 * Fail if listen == server OR listen all host address & server == me & listen port == server.port
 	 */
-	public ClientUnit createClient(InetAddress server_addr) throws Exception {
-		return new ClientUnit(this, new InetSocketAddress(server_addr, protocol.getDefaultTCPPort()));
+	public void validAddress(InetSocketAddress server) throws IOException {
+		if (enable_loop_clients == true) {
+			return;
+		}
+		
+		if (local_server != null) {
+			InetSocketAddress listen = local_server.getListen();
+			if (listen.equals(server) | (listen.getAddress().isAnyLocalAddress() & addr_master.isMe(server.getAddress()) & server.getPort() == listen.getPort())) {
+				throw new IOException(server + " is this current server.");
+			}
+		}
 	}
 	
 	/**
 	 * Client will be add to current list if can correctly connect to server.
 	 */
 	public ClientUnit createClient(InetSocketAddress server) throws Exception {
+		validAddress(server);
 		return new ClientUnit(this, server);
 	}
 	
@@ -155,6 +186,28 @@ public class PoolManager {
 				return true;
 			}
 			return false;
+		});
+	}
+	
+	/**
+	 * Remove loop client/server and actual connected clients.
+	 * @param new_addr_list will be cleaned only if address is in numeric (IP v4/v6) and not the String hostname format.
+	 */
+	void validClientAddress(ArrayList<InetSocketAddress> new_addr_list) {// TODO call before import a distant server list
+		new_addr_list.removeIf(addr -> {
+			try {
+				validAddress(addr);
+				
+				/**
+				 * For all current clients, select the first == addr -> if exists @return false.
+				 */
+				return clients.stream().filter(p -> {
+					return p.getConnectedServer().equals(addr);
+				}).findFirst().isPresent() == false;
+			} catch (IOException e) {
+				log.trace("Can't valid client address: " + e.getMessage());
+			}
+			return true;
 		});
 	}
 	

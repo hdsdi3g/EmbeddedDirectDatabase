@@ -16,7 +16,7 @@
 */
 package hd3gtv.embddb;
 
-import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.security.Security;
 
 import org.apache.log4j.Logger;
@@ -32,22 +32,17 @@ public class MainClass {
 		Security.addProvider(new BouncyCastleProvider());
 		
 		ITQueue itqueue = new ITQueue(2);
-		PoolManager poolmanager = new PoolManager(itqueue);
+		PoolManager poolmanager = new PoolManager(itqueue, "test");
+		poolmanager.setEnableLoopClients(true);
+		poolmanager.startServer();
 		
-		if (args.length > 0) {
-			if (args[0].equals("server")) {
-				poolmanager.startServer();
-			}
-		}
-		
-		// TODO do the connection client pool (list all actual clients, and display properties)
 		// TODO get the client connected list by server and share the list (auto-discover)
 		// TODO get the auto-discover list by client, and update the actual connection pool
 		// TODO de propagation action: client -> server ->> all server's clients
 		// TODO do the client / server shutdown propagation action
 		
 		Thread.sleep(50);
-		poolmanager.createClient(InetAddress.getByName("127.0.0.1")).doHandCheck();
+		poolmanager.createClient(new InetSocketAddress("127.0.0.1", poolmanager.getProtocol().getDefaultTCPPort())).doHandCheck();
 		
 		poolmanager.startConsole();
 	}

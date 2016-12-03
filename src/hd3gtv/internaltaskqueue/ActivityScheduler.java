@@ -65,6 +65,7 @@ public class ActivityScheduler<T> {
 	private class RegularTask {
 		ScheduledFuture<?> future;
 		T reference;
+		String descr;
 		
 		RegularTask(T reference, Procedure procedure, long initialDelay, long period, TimeUnit unit) {
 			this.reference = reference;
@@ -91,6 +92,12 @@ public class ActivityScheduler<T> {
 					}
 				}
 			}, initialDelay, period, unit);
+			
+			StringBuilder sb = new StringBuilder();
+			sb.append("Reference " + reference.getClass() + " [" + reference.toString() + "] ");
+			sb.append("Procedure " + procedure.getClass() + " ");
+			sb.append("Period " + unit.toMillis(period) + " ms");
+			descr = sb.toString();
 		}
 		
 		void cancel() {
@@ -101,13 +108,27 @@ public class ActivityScheduler<T> {
 			return reference.equals(compare);
 		}
 		
+		public String toString() {
+			return descr;
+		}
+		
 	}
 	
 	public void setConsole(InteractiveConsoleMode console) {
 		if (console == null) {
 			throw new NullPointerException("\"console\" can't to be null");
 		}
-		// TODO display in console
+		console.addOrder("scl", "Activity Scheduler List", "Display the activated regular task list", ActivityScheduler.class, param -> {
+			
+			if (regular_tasks.isEmpty()) {
+				System.out.println("No regular tasks to display.");
+			} else {
+				System.out.println("Display " + regular_tasks.size() + " regular task");
+				regular_tasks.forEach(pt -> {
+					System.out.println(pt.toString());
+				});
+			}
+		});
 	}
 	
 }

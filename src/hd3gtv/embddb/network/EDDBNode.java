@@ -75,7 +75,14 @@ public class EDDBNode {
 	}
 	
 	public void setListenAddr(InetSocketAddress listen) {
+		if (listen == null) {
+			throw new NullPointerException("\"listen\" can't to be null");
+		}
 		this.listen = listen;
+	}
+	
+	public InetSocketAddress getListen() {
+		return listen;
 	}
 	
 	private class SocketHandler implements CompletionHandler<AsynchronousSocketChannel, AsynchronousServerSocketChannel> {

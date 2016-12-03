@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
@@ -36,6 +37,7 @@ public class InteractiveConsoleMode {
 		controller = new LinkedHashMap<>();
 		
 		Action a = new Action("quit", "Exit application.", InteractiveConsoleMode.class, line -> {
+			System.out.println("Exit now");
 			System.exit(0);
 		});
 		controller.put("q", a);
@@ -58,12 +60,12 @@ public class InteractiveConsoleMode {
 				}
 			});
 			System.out.println();
+			System.out.println("If you prefix the action by \"l\" like \"l action\", it will be execute in loop.");
+			System.out.println();
 		});
 		controller.put("h", a);
 		controller.put("?", a);
 		controller.put("help", a);
-		
-		// TODO add loop action (do same action each seconds) + stop
 	}
 	
 	private class Action {
@@ -129,9 +131,11 @@ public class InteractiveConsoleMode {
 		String line;
 		String order;
 		String param;
+		boolean want_loop = false;
+		AtomicBoolean in_loop = new AtomicBoolean(false);
 		
-		System.out.println(" ====== Start interactive mode ====== ");
-		System.out.println(" == Use q for quit and h for help  ==");
+		System.out.println(" ========== Start interactive mode =========== ");
+		System.out.println(" == Use q for quit, h for help, l for loop  ==");
 		System.out.println();
 		try {
 			while (true) {
@@ -139,6 +143,16 @@ public class InteractiveConsoleMode {
 				line = bufferedReader.readLine().trim();
 				if (line.equals("")) {
 					continue;
+				}
+				
+				if (line.startsWith("l ")) {
+					want_loop = true;
+					line = line.substring(2);
+				} else if (line.equals("q") && in_loop.get()) {
+					in_loop.set(false);
+					continue;
+				} else {
+					want_loop = false;
 				}
 				
 				if (line.indexOf(" ") > -1) {
@@ -154,12 +168,34 @@ public class InteractiveConsoleMode {
 					continue;
 				}
 				
+				if (want_loop) {
+					in_loop.set(true);
+					final Action f_order = controller.get(order);
+					final String parameter = param;
+					Thread t = new Thread(() -> {
+						try {
+							System.out.println("Enter \"q\" for end loop.");
+							Thread.sleep(200);
+							while (in_loop.get()) {
+								f_order.procedure.process(parameter);
+								Thread.sleep(1000);
+								System.out.println();
+							}
+						} catch (Exception e) {
+							System.out.println("Error during " + f_order);
+							e.printStackTrace(System.out);
+						}
+					}, "ConsolePrintLoop");
+					t.setDaemon(true);
+					t.start();
+					continue;
+				}
+				
 				try {
 					controller.get(order).procedure.process(param);
 				} catch (Exception e) {
 					System.out.println("Error during " + order);
 					e.printStackTrace(System.out);
-					continue;
 				}
 			}
 		} catch (IOException e) {

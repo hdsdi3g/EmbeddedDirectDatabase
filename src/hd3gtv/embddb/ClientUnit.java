@@ -68,6 +68,10 @@ public class ClientUnit {
 		return internal.equals(client);
 	}
 	
+	public InetSocketAddress getConnectedServer() {
+		return server;
+	}
+	
 	public void close() {
 		try {
 			internal.close();
