@@ -23,9 +23,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
+import hd3gtv.embddb.dialect.ClientList;
 import hd3gtv.embddb.dialect.Dialog;
 import hd3gtv.embddb.dialect.HandCheck;
 import hd3gtv.embddb.dialect.PingPongTime;
@@ -73,6 +75,7 @@ public class PoolManager {
 		dialogs = new ArrayList<>();
 		dialogs.add(new HandCheck(protocol));
 		dialogs.add(new PingPongTime());
+		dialogs.add(new ClientList(this));
 		
 		dialogs_by_class = new HashMap<>(dialogs.size());
 		dialogs.forEach(d -> {
@@ -186,6 +189,53 @@ public class PoolManager {
 				return true;
 			}
 			return false;
+		});
+	}
+	
+	public ArrayList<InetSocketAddress> getAllCurrentConnected() {
+		ArrayList<InetSocketAddress> result = new ArrayList<>(clients.stream().map(c -> {
+			return c.getConnectedServer();
+		}).collect(Collectors.toList()));
+		
+		local_server.addConnectedClientsToList(result);
+		
+		return result;
+	}
+	
+	/**
+	 * Search new clients to connect to it.
+	 * TODO regular call
+	 */
+	public void autoDiscover() {
+		/**
+		 * Direct mode -> check client list == connected to server list
+		 * -
+		 * Get all current clients
+		 */
+		ArrayList<InetSocketAddress> actual_list = new ArrayList<>(clients.stream().map(c -> {
+			return c.getConnectedServer();
+		}).collect(Collectors.toList()));
+		
+		validClientAddress(actual_list);
+		
+		/**
+		 * Compare with the current connected to server list, add contact the new connected.
+		 */
+		local_server.callbackConnectedClientNotInList(actual_list, c -> {
+			queue.addToQueue(c, ClientUnit.class, server -> {
+				return createClient(server);
+			}, (i, cli) -> {
+				log.info("Add new server: " + cli);
+			}, (i, u) -> {
+				log.warn("Can't to connect to server " + i + ", but it really exists and should be contactable.", u);
+			});
+		});
+		
+		/**
+		 * Distant mode -> get for each client the full Connected to its server list and the client connected to it.
+		 */
+		clients.stream().forEach(c -> {
+			// TODO request
 		});
 	}
 	

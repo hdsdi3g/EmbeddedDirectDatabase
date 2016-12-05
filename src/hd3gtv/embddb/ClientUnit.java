@@ -175,4 +175,6 @@ public class ClientUnit {
 		return sb.toString();
 	}
 	
+	// TODO get all clients connected to this server
+	
 }

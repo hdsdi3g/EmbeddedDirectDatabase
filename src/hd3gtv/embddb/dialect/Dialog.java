@@ -24,6 +24,8 @@ import hd3gtv.embddb.network.RequestBlock;
 
 /**
  * All new Dialogs must be declared to PoolManager
+ * R Object to sent do Dialog for create request (client side)
+ * O client request to send to server (client side)
  */
 public interface Dialog<R, O> {
 	

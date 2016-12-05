@@ -26,6 +26,7 @@ import hd3gtv.embddb.ClientUnit;
 import hd3gtv.embddb.network.Protocol;
 import hd3gtv.embddb.network.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
+import hd3gtv.internaltaskqueue.ParametedWithResultProcedure;
 
 public class HandCheck implements Dialog<Void, String> {
 	
@@ -81,6 +82,27 @@ public class HandCheck implements Dialog<Void, String> {
 	public boolean checkIfServerResponseIsForThisClient(ArrayList<RequestBlock> blocks) {
 		String name = blocks.get(0).getName();
 		return name.equals("welcome") | name.equals("error");
+	}
+	
+	class Hello extends ClientSayToServer<String> {
+		
+		public Hello(ParametedWithResultProcedure<ArrayList<RequestBlock>, String> callback) {
+			super(callback);
+		}
+		
+		public ArrayList<RequestBlock> getBlocksToSendToServer() {
+			return ArrayWrapper.asArrayList(new RequestBlock("hello", "Hello from EmbDDB"), new RequestBlock("version", Protocol.VERSION.toString()));
+		}
+		
+		public void checkMatchVersionWithClient(Protocol protocol, ArrayList<RequestBlock> blocks) throws IOException {
+			if (blocks.size() != 2) {
+				throw new IOException("Bad block count " + blocks.size());
+			}
+			if (Version.resolveFromString(new String(blocks.get(1).getDatas())) != Protocol.VERSION) {
+				throw new IOException("Bad version " + new String(blocks.get(1).getDatas()));
+			}
+		}
+		
 	}
 	
 }
