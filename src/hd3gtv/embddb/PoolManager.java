@@ -22,6 +22,9 @@ import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -53,6 +56,9 @@ public class PoolManager {
 	
 	private ITQueue queue;
 	private ActivityScheduler<ClientUnit> scheduler;
+	private final ScheduledExecutorService scheduled_autodiscover;
+	private ScheduledFuture<?> regular_autodiscover;
+	
 	private InteractiveConsoleMode console;
 	private AddressMaster addr_master;
 	
@@ -85,6 +91,8 @@ public class PoolManager {
 		clients = new ArrayList<>();
 		scheduler = new ActivityScheduler<>();
 		scheduler.setConsole(console);
+		
+		scheduled_autodiscover = Executors.newSingleThreadScheduledExecutor();
 	}
 	
 	Protocol getProtocol() {
@@ -115,7 +123,25 @@ public class PoolManager {
 		startServer(null);
 	}
 	
+	public void startRegularAutodiscover() {
+		if (regular_autodiscover.isCancelled() | regular_autodiscover.isDone()) {
+			log.info("Start regular autodiscover");
+			regular_autodiscover = scheduled_autodiscover.scheduleAtFixedRate(() -> {
+				autoDiscover();
+			}, 1000, 60, TimeUnit.SECONDS);
+		}
+	}
+	
+	public void stopRegularAutodiscover() {
+		if (regular_autodiscover.isCancelled() == false) {
+			log.info("Stop regular autodiscover");
+			regular_autodiscover.cancel(false);
+		}
+	}
+	
 	public void closeAll() {
+		stopRegularAutodiscover();
+		
 		try {
 			local_server.stop();
 		} catch (IOException e) {
@@ -138,26 +164,40 @@ public class PoolManager {
 	}
 	
 	/**
-	 * Fail if listen == server OR listen all host address & server == me & listen port == server.port
+	 * @return false if listen == server OR listen all host address & server == me & listen port == server.port
 	 */
-	public void validAddress(InetSocketAddress server) throws IOException {
+	public boolean validAddress(InetSocketAddress server) {
 		if (enable_loop_clients == true) {
-			return;
+			return true;
 		}
 		
 		if (local_server != null) {
 			InetSocketAddress listen = local_server.getListen();
 			if (listen.equals(server) | (listen.getAddress().isAnyLocalAddress() & addr_master.isMe(server.getAddress()) & server.getPort() == listen.getPort())) {
-				throw new IOException(server + " is this current server.");
+				return false;
 			}
 		}
+		
+		return true;
 	}
 	
 	/**
 	 * Client will be add to current list if can correctly connect to server.
+	 * @return null if the client already exists
 	 */
 	public ClientUnit createClient(InetSocketAddress server) throws Exception {
-		validAddress(server);
+		if (validAddress(server) == false) {
+			return null;
+		}
+		
+		if (clients.stream().map(c -> {
+			return c.getConnectedServer();
+		}).anyMatch(p -> {
+			return p.equals(server);
+		})) {
+			return null;
+		}
+		
 		return new ClientUnit(this, server);
 	}
 	
@@ -197,16 +237,13 @@ public class PoolManager {
 			return c.getConnectedServer();
 		}).collect(Collectors.toList()));
 		
-		local_server.addConnectedClientsToList(result);
-		
 		return result;
 	}
 	
 	/**
 	 * Search new clients to connect to it.
-	 * TODO regular call
 	 */
-	public void autoDiscover() {
+	public void autoDiscover() {// TODO add debug/trace log !!
 		/**
 		 * Direct mode -> check client list == connected to server list
 		 * -
@@ -216,49 +253,33 @@ public class PoolManager {
 			return c.getConnectedServer();
 		}).collect(Collectors.toList()));
 		
-		validClientAddress(actual_list);
-		
 		/**
-		 * Compare with the current connected to server list, add contact the new connected.
+		 * Reverse mode -> Compare with the current-connected-to-server list, add contact the new connected.
 		 */
 		local_server.callbackConnectedClientNotInList(actual_list, c -> {
 			queue.addToQueue(c, ClientUnit.class, server -> {
 				return createClient(server);
 			}, (i, cli) -> {
-				log.info("Add new server: " + cli);
+				if (cli != null) {
+					log.info("Add new server: " + cli);
+				}
 			}, (i, u) -> {
 				log.warn("Can't to connect to server " + i + ", but it really exists and should be contactable.", u);
 			});
 		});
 		
+		local_server.addConnectedClientsToList(actual_list);
+		
 		/**
 		 * Distant mode -> get for each client the full Connected to its server list and the client connected to it.
 		 */
-		clients.stream().forEach(c -> {
-			// TODO request
+		clients.stream().forEach(client -> {
+			client.getFromConnectedServerThisActualClientList(actual_list);
 		});
 	}
 	
-	/**
-	 * Remove loop client/server and actual connected clients.
-	 * @param new_addr_list will be cleaned only if address is in numeric (IP v4/v6) and not the String hostname format.
-	 */
-	void validClientAddress(ArrayList<InetSocketAddress> new_addr_list) {// TODO call before import a distant server list
-		new_addr_list.removeIf(addr -> {
-			try {
-				validAddress(addr);
-				
-				/**
-				 * For all current clients, select the first == addr -> if exists @return false.
-				 */
-				return clients.stream().filter(p -> {
-					return p.getConnectedServer().equals(addr);
-				}).findFirst().isPresent() == false;
-			} catch (IOException e) {
-				log.trace("Can't valid client address: " + e.getMessage());
-			}
-			return true;
-		});
+	public ITQueue getQueue() {
+		return queue;
 	}
 	
 	Dialog<?, ?> getByClass(Class<? extends Dialog<?, ?>> dialog_class) {
@@ -290,6 +311,26 @@ public class PoolManager {
 			clients.forEach(client -> {
 				System.out.println(client.getActualStatus());
 			});
+		});
+		
+		console.addOrder("autod", "Autodiscover", "Display the client autodiscover status. Usage autod [start | stop | run]", PoolManager.class, param -> {
+			if (param == null | param.equals("")) {
+				System.out.println("Autodiscover status:");
+				System.out.println("Delay: " + regular_autodiscover.getDelay(TimeUnit.SECONDS) + " seconds");
+				System.out.println("Cancelled: " + regular_autodiscover.isCancelled());
+				System.out.println("Done: " + regular_autodiscover.isDone());
+			} else if (param.equals("start")) {
+				System.out.println("Start autodiscover.");
+				startRegularAutodiscover();
+			} else if (param.equals("stop")) {
+				System.out.println("Stop autodiscover.");
+				stopRegularAutodiscover();
+			} else if (param.equals("run")) {
+				System.out.println("Run now autodiscover.");
+				autoDiscover();
+			} else {
+				throw new Exception("Unknow param " + param);
+			}
 		});
 		
 		console.waitActions();

@@ -18,11 +18,13 @@ package hd3gtv.embddb;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
+import hd3gtv.embddb.dialect.ClientList;
 import hd3gtv.embddb.dialect.ClientSayToServer;
 import hd3gtv.embddb.dialect.Dialog;
 import hd3gtv.embddb.dialect.HandCheck;
@@ -175,6 +177,22 @@ public class ClientUnit {
 		return sb.toString();
 	}
 	
-	// TODO get all clients connected to this server
-	
+	public void getFromConnectedServerThisActualClientList(ArrayList<InetSocketAddress> all_current_connected) {
+		internalRequest(ClientList.class, all_current_connected, distant_list -> {
+			distant_list.forEach(v -> {
+				pool.getQueue().addToQueue(v, ClientUnit.class, server -> {
+					return pool.createClient(server);
+				}, (i, cli) -> {
+					if (cli != null) {
+						log.info("Add new server (imported from " + server + "): " + cli);
+					}
+				}, (i, u) -> {
+					log.warn("Can't to connect to server " + i + ", but it really exists and should be contactable (" + server + " can do it).", u);
+				});
+			});
+		}, e -> {
+			log.error("Can't get client list from server " + server, e);
+			pool.removeClient(this);
+		});
+	}
 }

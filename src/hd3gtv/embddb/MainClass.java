@@ -36,13 +36,11 @@ public class MainClass {
 		poolmanager.setEnableLoopClients(true);
 		poolmanager.startServer();
 		
-		// TODO get the client connected list by server and share the list (auto-discover)
-		// TODO get the auto-discover list by client, and update the actual connection pool
-		// TODO de propagation action: client -> server ->> all server's clients
 		// TODO do the client / server shutdown propagation action
+		// TODO manage white/black range addr list for autodiscover
 		
 		Thread.sleep(50);
-		poolmanager.createClient(new InetSocketAddress("127.0.0.1", poolmanager.getProtocol().getDefaultTCPPort())).doHandCheck();
+		poolmanager.createClient(new InetSocketAddress("127.0.0.1", poolmanager.getProtocol().getDefaultTCPPort())).doHandCheck();// TODO manage default list
 		
 		poolmanager.startConsole();
 	}

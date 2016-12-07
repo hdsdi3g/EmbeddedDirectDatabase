@@ -17,10 +17,13 @@
 package hd3gtv.embddb.dialect;
 
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.stream.Stream;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import hd3gtv.embddb.ClientUnit;
 import hd3gtv.embddb.PoolManager;
@@ -28,40 +31,72 @@ import hd3gtv.embddb.network.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 import hd3gtv.internaltaskqueue.ParametedWithResultProcedure;
 
-public class ClientList implements Dialog<Void, Void> {
-	// ArrayList<InetSocketAddress>
+public class ClientList implements Dialog<ArrayList<InetSocketAddress>, ArrayList<InetSocketAddress>> {
 	
 	private PoolManager pool_manager;
-	private CLRequest request;
 	
 	public ClientList(PoolManager pool_manager) {
 		this.pool_manager = pool_manager;
 		if (pool_manager == null) {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
-		
-		/*request = new CLRequest(p -> {
-			
-			return ArrayWrapper.asArrayList(new RequestBlock("clientaddrlist", datas));
-		}, null);*/
 	}
 	
-	private class CLRequest extends ClientSayToServer<Void> {
+	public ClientSayToServer<ArrayList<InetSocketAddress>> getClientSentenceToSendToServer(ClientUnit client, ArrayList<InetSocketAddress> current_connected) {
+		return new CLRequest(p -> {
+			return deserializing(p.get(0).getDatasAsString());
+		}, current_connected);
+	}
+	
+	private class CLRequest extends ClientSayToServer<ArrayList<InetSocketAddress>> {
 		
-		public CLRequest(ParametedWithResultProcedure<ArrayList<RequestBlock>, Void> callback) {
+		private ArrayList<InetSocketAddress> current_connected;
+		
+		public CLRequest(ParametedWithResultProcedure<ArrayList<RequestBlock>, ArrayList<InetSocketAddress>> callback, ArrayList<InetSocketAddress> current_connected) {
 			super(callback);
+			this.current_connected = current_connected;
+			if (current_connected == null) {
+				throw new NullPointerException("\"current_connected\" can't to be null");
+			}
 		}
 		
 		public ArrayList<RequestBlock> getBlocksToSendToServer() {
-			return ArrayWrapper.asArrayList(new RequestBlock("clientlistrequest", "[]"));// TODO set to empty data
+			return ArrayWrapper.asArrayList(new RequestBlock("clientlistrequest", serializing(current_connected.stream())));
 		}
 		
 	}
 	
-	@Override
-	public ClientSayToServer<Void> getClientSentenceToSendToServer(ClientUnit client, Void request) {
-		// TODO Auto-generated method stub
-		return null;
+	/**
+	 * @return JsonArray String
+	 */
+	private String serializing(Stream<InetSocketAddress> list) {
+		return list.map(a -> {
+			JsonObject jo = new JsonObject();
+			jo.addProperty("ip", a.getAddress().getHostAddress());
+			jo.addProperty("port", a.getPort());
+			return jo;
+		}).collect(() -> {
+			return new JsonArray();
+		}, (jsonarray, jsonobject) -> {
+			jsonarray.add(jsonobject);
+		}, (jsonarray1, jsonarray2) -> {
+			jsonarray1.addAll(jsonarray2);
+		}).toString();
+	}
+	
+	private JsonParser parser = new JsonParser();
+	
+	private ArrayList<InetSocketAddress> deserializing(String json_array_list) {
+		JsonArray ja = parser.parse(json_array_list).getAsJsonArray();
+		
+		ArrayList<InetSocketAddress> client_list = new ArrayList<>(ja.size() + 1);
+		
+		ja.forEach(je -> {
+			JsonObject jo = je.getAsJsonObject();
+			client_list.add(new InetSocketAddress(jo.get("ip").getAsString(), jo.get("port").getAsInt()));
+		});
+		
+		return client_list;
 	}
 	
 	public ServerSayToClient getServerSentenceToSendToClient(InetAddress client, ArrayList<RequestBlock> send) {
@@ -69,19 +104,8 @@ public class ClientList implements Dialog<Void, Void> {
 		return new ServerSayToClient() {
 			
 			public ArrayList<RequestBlock> getBlocksToSendToClient() {
-				RequestBlock rb = new RequestBlock("clientlistresponse", pool_manager.getAllCurrentConnected().stream().map(a -> {
-					JsonObject jo = new JsonObject();
-					jo.addProperty("ip", a.getAddress().getHostAddress());
-					jo.addProperty("port", a.getPort());
-					return jo;
-				}).collect(() -> {
-					return new JsonArray();
-				}, (jsonarray, jsonobject) -> {
-					jsonarray.add(jsonobject);
-				}, (jsonarray1, jsonarray2) -> {
-					jsonarray1.addAll(jsonarray2);
-				}).toString());
-				
+				// send.get(0) TODO get original distant client list, and discriminate it
+				RequestBlock rb = new RequestBlock("clientlistresponse", serializing(pool_manager.getAllCurrentConnected().stream()));
 				return ArrayWrapper.asArrayList(rb);
 			}
 		};
