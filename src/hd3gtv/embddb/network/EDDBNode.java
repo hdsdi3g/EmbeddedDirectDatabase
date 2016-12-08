@@ -23,10 +23,7 @@ import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
@@ -72,31 +69,13 @@ public class EDDBNode {
 		});
 	}
 	
-	/**
-	 * @param actual_list will be synchronized
-	 */
-	public void addConnectedClientsToList(Collection<InetSocketAddress> actual_list) {
-		synchronized (actual_list) {
-			actual_list.addAll(connected_clients.stream().filter(p -> {
-				return actual_list.contains(p) == false;
-			}).collect(Collectors.toList()));
-		}
-	}
-	
-	/**
-	 * @param actual_list will be synchronized
-	 */
-	public void callbackConnectedClientNotInList(Collection<InetSocketAddress> actual_list, Consumer<InetSocketAddress> on_new_client) {
-		synchronized (actual_list) {
-			connected_clients.stream().filter(p -> {
-				return actual_list.contains(p) == false;
-			}).forEach(on_new_client);
-		}
-	}
-	
 	public void start() throws IOException {
 		server.bind(listen);
 		server.accept(server, new SocketHandler());
+	}
+	
+	public boolean isOpen() {
+		return server.isOpen();
 	}
 	
 	public void setListenAddr(InetSocketAddress listen) {

@@ -168,9 +168,11 @@ public class EDDBClient {
 		});
 	}
 	
+	/**
+	 * If you needs to close this local server too, you should use the dialect for it.
+	 */
 	public void close() throws Exception {
 		if (channel.isOpen()) {
-			// TODO disconnect with protocol
 			channel.close();
 		}
 	}

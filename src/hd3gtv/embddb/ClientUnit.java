@@ -24,11 +24,12 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.dialect.ClientList;
 import hd3gtv.embddb.dialect.ClientSayToServer;
 import hd3gtv.embddb.dialect.Dialog;
-import hd3gtv.embddb.dialect.HandCheck;
-import hd3gtv.embddb.dialect.PingPongTime;
+import hd3gtv.embddb.dialect.dialogs.ClientList;
+import hd3gtv.embddb.dialect.dialogs.DisconnectNode;
+import hd3gtv.embddb.dialect.dialogs.HandCheck;
+import hd3gtv.embddb.dialect.dialogs.PingPongTime;
 import hd3gtv.embddb.network.EDDBClient;
 import hd3gtv.internaltaskqueue.ParametedProcedure;
 
@@ -53,6 +54,7 @@ public class ClientUnit {
 		}
 		server_delta_time = 0;
 		
+		log.debug("Create client: " + server);
 		try {
 			internal = new EDDBClient(pool.getProtocol(), server);
 			internal.connect();
@@ -74,6 +76,9 @@ public class ClientUnit {
 		return server;
 	}
 	
+	/**
+	 * Please, do it with protocol for the let to remove the local server references.
+	 */
 	public void close() {
 		try {
 			internal.close();
@@ -91,6 +96,11 @@ public class ClientUnit {
 		Dialog<T, O> dialog = (Dialog<T, O>) pool.getByClass(dialog_class);
 		
 		ClientSayToServer<O> to_send = dialog.getClientSentenceToSendToServer(this, request);
+		
+		if (to_send == null) {
+			log.debug(dialog_class + " is canceled: no requests to do");
+			return;
+		}
 		
 		try {
 			internal.request(to_send.getBlocksToSendToServer(), (blocks, server) -> {
@@ -195,4 +205,18 @@ public class ClientUnit {
 			pool.removeClient(this);
 		});
 	}
+	
+	/**
+	 * Say to my connected distant server to remove all references for me. After that, I'll close the connection.
+	 */
+	public void disconnectMe() {// FIXME call this by pool manager...
+		log.info("Start the disconnect procedure for " + server);
+		internalRequest(DisconnectNode.class, null, thisvoid -> {
+			close();
+		}, e -> {
+			log.error("Can't be polite with this server " + server + ". Anyway, I disconnect to it myself.", e);
+			close();
+		});
+	}
+	
 }

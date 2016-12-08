@@ -25,12 +25,26 @@ import hd3gtv.embddb.network.RequestBlock;
 /**
  * All new Dialogs must be declared to PoolManager
  * R Object to sent do Dialog for create request (client side)
- * O client request to send to server (client side)
+ * O server response sended to client (also client side)
  */
 public interface Dialog<R, O> {
 	
+	/**
+	 * Executed in client side.
+	 * @param client this client do the request
+	 * @param request the data to send to distant server
+	 * @return the converter which does the convertion R to raw data (sended) and raw datas (recevied) to O.
+	 * @see checkIfServerResponseIsForThisClient for the response routing
+	 */
 	public ClientSayToServer<O> getClientSentenceToSendToServer(ClientUnit client, R request);
 	
+	/**
+	 * Executed server side.
+	 * @see checkIfClientRequestIsForThisServer for the request routing
+	 * @param client the distant client which does the request.
+	 * @param send the raw data sended (the ClientSayToServer<O> made it, in client side, from R).
+	 * @return the raw data to responds to the client (the ClientSayToServer<O> in client side will open it to O).
+	 */
 	public ServerSayToClient getServerSentenceToSendToClient(InetAddress client, ArrayList<RequestBlock> send);
 	
 	public boolean checkIfClientRequestIsForThisServer(ArrayList<RequestBlock> blocks);

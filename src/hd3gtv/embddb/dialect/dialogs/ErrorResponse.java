@@ -11,32 +11,30 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 27 nov. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 25 nov. 2016
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.dialect.dialogs;
 
 import java.util.ArrayList;
-import java.util.UUID;
 
+import hd3gtv.embddb.dialect.ServerSayToClient;
 import hd3gtv.embddb.network.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
-import hd3gtv.internaltaskqueue.ParametedWithResultProcedure;
 
-public class Ping extends ClientSayToServer<Long> {
+public class ErrorResponse implements ServerSayToClient {
 	
-	private UUID request;
+	public String message;
 	
-	public Ping(ParametedWithResultProcedure<ArrayList<RequestBlock>, Long> callback, UUID request) {
-		super(callback);
-		this.request = request;
-		if (request == null) {
-			throw new NullPointerException("\"request\" can't to be null");
+	public ErrorResponse(String message) {
+		this.message = message;
+		if (message == null) {
+			throw new NullPointerException("\"message\" can't to be null");
 		}
 	}
 	
-	public ArrayList<RequestBlock> getBlocksToSendToServer() {
-		return ArrayWrapper.asArrayList(new RequestBlock("ping", request.toString()));
+	public ArrayList<RequestBlock> getBlocksToSendToClient() {
+		return ArrayWrapper.asArrayList(new RequestBlock("error", message));
 	}
 	
 }

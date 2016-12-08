@@ -36,11 +36,10 @@ public class MainClass {
 		poolmanager.setEnableLoopClients(true);
 		poolmanager.startServer();
 		
-		// TODO do the client / server shutdown propagation action
 		// TODO manage white/black range addr list for autodiscover
 		
 		Thread.sleep(50);
-		poolmanager.createClient(new InetSocketAddress("127.0.0.1", poolmanager.getProtocol().getDefaultTCPPort())).doHandCheck();// TODO manage default list
+		poolmanager.createClient(new InetSocketAddress("127.0.0.1", poolmanager.getProtocol().getDefaultTCPPort())).doHandCheck();// FIXME manage default list
 		
 		poolmanager.startConsole();
 	}

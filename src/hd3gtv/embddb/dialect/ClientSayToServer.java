@@ -23,6 +23,7 @@ import hd3gtv.internaltaskqueue.ParametedWithResultProcedure;
 
 /**
  * Client side.
+ * O distant server response somme datas, and this class will converted to O
  */
 public abstract class ClientSayToServer<O> {
 	

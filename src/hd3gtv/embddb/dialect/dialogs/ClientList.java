@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 5 déc. 2016
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.dialect.dialogs;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -27,6 +27,9 @@ import com.google.gson.JsonParser;
 
 import hd3gtv.embddb.ClientUnit;
 import hd3gtv.embddb.PoolManager;
+import hd3gtv.embddb.dialect.ClientSayToServer;
+import hd3gtv.embddb.dialect.Dialog;
+import hd3gtv.embddb.dialect.ServerSayToClient;
 import hd3gtv.embddb.network.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 import hd3gtv.internaltaskqueue.ParametedWithResultProcedure;
@@ -69,7 +72,7 @@ public class ClientList implements Dialog<ArrayList<InetSocketAddress>, ArrayLis
 	/**
 	 * @return JsonArray String
 	 */
-	private String serializing(Stream<InetSocketAddress> list) {
+	public static String serializing(Stream<InetSocketAddress> list) {
 		return list.map(a -> {
 			JsonObject jo = new JsonObject();
 			jo.addProperty("ip", a.getAddress().getHostAddress());
@@ -84,9 +87,9 @@ public class ClientList implements Dialog<ArrayList<InetSocketAddress>, ArrayLis
 		}).toString();
 	}
 	
-	private JsonParser parser = new JsonParser();
+	private static JsonParser parser = new JsonParser();
 	
-	private ArrayList<InetSocketAddress> deserializing(String json_array_list) {
+	public static ArrayList<InetSocketAddress> deserializing(String json_array_list) {
 		JsonArray ja = parser.parse(json_array_list).getAsJsonArray();
 		
 		ArrayList<InetSocketAddress> client_list = new ArrayList<>(ja.size() + 1);
@@ -104,9 +107,13 @@ public class ClientList implements Dialog<ArrayList<InetSocketAddress>, ArrayLis
 		return new ServerSayToClient() {
 			
 			public ArrayList<RequestBlock> getBlocksToSendToClient() {
-				// send.get(0) TODO get original distant client list, and discriminate it
-				RequestBlock rb = new RequestBlock("clientlistresponse", serializing(pool_manager.getAllCurrentConnected().stream()));
-				return ArrayWrapper.asArrayList(rb);
+				ArrayList<InetSocketAddress> addr = deserializing(send.get(0).getDatasAsString());
+				
+				String response = serializing(pool_manager.getAllCurrentConnected().stream().filter(predicate -> {
+					return addr.contains(predicate) == false;
+				}));
+				
+				return ArrayWrapper.asArrayList(new RequestBlock("clientlistresponse", response));
 			}
 		};
 	}

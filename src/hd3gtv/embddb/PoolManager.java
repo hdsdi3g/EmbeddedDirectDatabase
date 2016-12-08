@@ -30,10 +30,11 @@ import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.dialect.ClientList;
 import hd3gtv.embddb.dialect.Dialog;
-import hd3gtv.embddb.dialect.HandCheck;
-import hd3gtv.embddb.dialect.PingPongTime;
+import hd3gtv.embddb.dialect.dialogs.ClientList;
+import hd3gtv.embddb.dialect.dialogs.DisconnectNode;
+import hd3gtv.embddb.dialect.dialogs.HandCheck;
+import hd3gtv.embddb.dialect.dialogs.PingPongTime;
 import hd3gtv.embddb.network.EDDBClient;
 import hd3gtv.embddb.network.EDDBNode;
 import hd3gtv.embddb.network.Protocol;
@@ -79,9 +80,10 @@ public class PoolManager {
 		protocol = new Protocol(master_password_key);
 		
 		dialogs = new ArrayList<>();
-		dialogs.add(new HandCheck(protocol));
+		dialogs.add(new HandCheck(protocol));// TODO better implementation...
 		dialogs.add(new PingPongTime());
 		dialogs.add(new ClientList(this));
+		dialogs.add(new DisconnectNode(this));
 		
 		dialogs_by_class = new HashMap<>(dialogs.size());
 		dialogs.forEach(d -> {
@@ -116,11 +118,29 @@ public class PoolManager {
 			local_server.setListenAddr(listen);
 		}
 		local_server.setConsole(console);
+		
+		if (listen != null) {
+			log.info("Start local server on " + listen);
+		} else {
+			log.info("Start local server on all IP addr and for port " + protocol.getDefaultTCPPort());
+		}
 		local_server.start();
 	}
 	
 	public void startServer() throws IOException {
 		startServer(null);
+	}
+	
+	/**
+	 * @return null if closed
+	 */
+	public InetSocketAddress getServerListenSocketAddress() {
+		if (local_server != null) {
+			if (local_server.isOpen()) {
+				return local_server.getListen();
+			}
+		}
+		return null;
 	}
 	
 	public void startRegularAutodiscover() {
@@ -140,6 +160,8 @@ public class PoolManager {
 	}
 	
 	public void closeAll() {
+		log.info("Close all functions: clients, server, autodiscover");
+		
 		stopRegularAutodiscover();
 		
 		try {
@@ -152,6 +174,10 @@ public class PoolManager {
 		});
 	}
 	
+	/**
+	 * For enable the creation of client to the local server.
+	 * Not recomended !
+	 */
 	public void setEnableLoopClients(boolean enable_loop_clients) {
 		this.enable_loop_clients = enable_loop_clients;
 		if (enable_loop_clients) {
@@ -202,7 +228,7 @@ public class PoolManager {
 	}
 	
 	synchronized void declareClient(ClientUnit client) {
-		log.debug("Add client " + client);
+		log.info("Add valid client " + client);
 		
 		scheduler.add(client, () -> {
 			queue.addToQueue(() -> {
@@ -216,13 +242,15 @@ public class PoolManager {
 	}
 	
 	synchronized void removeClient(ClientUnit client) {
-		log.debug("Remove client " + client);
+		log.info("Remove client " + client);
+		
 		scheduler.remove(client);
 		clients.remove(client);
 	}
 	
 	public synchronized void removeClient(EDDBClient client) {
-		log.debug("Remove client " + client);
+		log.info("Remove client " + client);
+		
 		clients.removeIf(p -> {
 			if (p.isThisInternalClient(client)) {
 				scheduler.remove(p);
@@ -230,6 +258,17 @@ public class PoolManager {
 			}
 			return false;
 		});
+	}
+	
+	public void removeClient(InetSocketAddress client) {
+		log.info("Remove client " + client);
+		try {
+			clients.stream().filter(p -> {
+				return p.getConnectedServer().equals(client);
+			}).findFirst().get().close();
+		} catch (NoSuchElementException e) {
+			log.debug("Can't found client " + client, e);
+		}
 	}
 	
 	public ArrayList<InetSocketAddress> getAllCurrentConnected() {
@@ -243,7 +282,9 @@ public class PoolManager {
 	/**
 	 * Search new clients to connect to it.
 	 */
-	public void autoDiscover() {// TODO add debug/trace log !!
+	public void autoDiscover() {
+		log.debug("Start discover for " + clients.size() + " client(s)");
+		
 		/**
 		 * Direct mode -> check client list == connected to server list
 		 * -
@@ -253,22 +294,7 @@ public class PoolManager {
 			return c.getConnectedServer();
 		}).collect(Collectors.toList()));
 		
-		/**
-		 * Reverse mode -> Compare with the current-connected-to-server list, add contact the new connected.
-		 */
-		local_server.callbackConnectedClientNotInList(actual_list, c -> {
-			queue.addToQueue(c, ClientUnit.class, server -> {
-				return createClient(server);
-			}, (i, cli) -> {
-				if (cli != null) {
-					log.info("Add new server: " + cli);
-				}
-			}, (i, u) -> {
-				log.warn("Can't to connect to server " + i + ", but it really exists and should be contactable.", u);
-			});
-		});
-		
-		local_server.addConnectedClientsToList(actual_list);
+		log.debug("Do the autodiscover distant mode with " + actual_list.size() + " server(s) to check");
 		
 		/**
 		 * Distant mode -> get for each client the full Connected to its server list and the client connected to it.

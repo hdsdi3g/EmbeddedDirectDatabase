@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 24 nov. 2016
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.dialect.dialogs;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -23,6 +23,10 @@ import java.util.ArrayList;
 import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.ClientUnit;
+import hd3gtv.embddb.dialect.ClientSayToServer;
+import hd3gtv.embddb.dialect.Dialog;
+import hd3gtv.embddb.dialect.ServerSayToClient;
+import hd3gtv.embddb.dialect.Version;
 import hd3gtv.embddb.network.Protocol;
 import hd3gtv.embddb.network.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;

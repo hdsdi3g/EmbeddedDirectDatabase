@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
@@ -73,6 +74,13 @@ public class AddressMaster {
 	 */
 	public boolean isMe(InetAddress addr) {
 		return all_host_addr.contains(addr);
+	}
+	
+	/**
+	 * @return local and distant mergued.
+	 */
+	public List<InetAddress> getAddresses() {
+		return Collections.unmodifiableList(all_host_addr.stream().collect(Collectors.toList()));
 	}
 	
 }
