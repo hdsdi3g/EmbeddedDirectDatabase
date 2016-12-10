@@ -209,7 +209,7 @@ public class ClientUnit {
 	/**
 	 * Say to my connected distant server to remove all references for me. After that, I'll close the connection.
 	 */
-	public void disconnectMe() {// FIXME call this by pool manager...
+	public void disconnectMe() {
 		log.info("Start the disconnect procedure for " + server);
 		internalRequest(DisconnectNode.class, null, thisvoid -> {
 			close();

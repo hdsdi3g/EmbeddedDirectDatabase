@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
@@ -42,6 +43,7 @@ import hd3gtv.embddb.network.RequestBlock;
 import hd3gtv.embddb.tools.InteractiveConsoleMode;
 import hd3gtv.internaltaskqueue.ActivityScheduler;
 import hd3gtv.internaltaskqueue.ITQueue;
+import hd3gtv.internaltaskqueue.ParametedProcedure;
 import hd3gtv.tools.AddressMaster;
 
 public class PoolManager {
@@ -59,6 +61,7 @@ public class PoolManager {
 	private ActivityScheduler<ClientUnit> scheduler;
 	private final ScheduledExecutorService scheduled_autodiscover;
 	private ScheduledFuture<?> regular_autodiscover;
+	private ShutdownHook shutdown_hook;
 	
 	private InteractiveConsoleMode console;
 	private AddressMaster addr_master;
@@ -95,6 +98,7 @@ public class PoolManager {
 		scheduler.setConsole(console);
 		
 		scheduled_autodiscover = Executors.newSingleThreadScheduledExecutor();
+		shutdown_hook = new ShutdownHook();
 	}
 	
 	Protocol getProtocol() {
@@ -125,6 +129,8 @@ public class PoolManager {
 			log.info("Start local server on all IP addr and for port " + protocol.getDefaultTCPPort());
 		}
 		local_server.start();
+		
+		Runtime.getRuntime().addShutdownHook(shutdown_hook);
 	}
 	
 	public void startServer() throws IOException {
@@ -159,19 +165,25 @@ public class PoolManager {
 		}
 	}
 	
+	/**
+	 * Blocking
+	 */
 	public void closeAll() {
-		log.info("Close all functions: clients, server, autodiscover");
+		log.info("Close all functions: clients, server, autodiscover. It's blocking");
 		
 		stopRegularAutodiscover();
+		sayToClientsToDisconnectMe();
 		
 		try {
 			local_server.stop();
 		} catch (IOException e) {
 			log.error("Can't stop local server");
 		}
-		clients.forEach(c -> {
-			c.close();
-		});
+		
+		try {
+			Runtime.getRuntime().removeShutdownHook(shutdown_hook);
+		} catch (IllegalStateException e) {
+		}
 	}
 	
 	/**
@@ -360,6 +372,36 @@ public class PoolManager {
 		});
 		
 		console.waitActions();
+	}
+	
+	/**
+	 * Blocking.
+	 */
+	public void sayToClientsToDisconnectMe() {
+		ParametedProcedure<ClientUnit> process = client -> {
+			client.disconnectMe();
+		};
+		BiConsumer<ClientUnit, Exception> onError = (client, e) -> {
+			log.error("Can't do disconnect action for client " + client, e);
+			removeClient(client);
+		};
+		
+		clients.forEach(client -> {
+			queue.addToQueue(client, process, onError);
+		});
+		
+		try {
+			while (clients.isEmpty() == false) {
+				Thread.sleep(1);
+			}
+		} catch (InterruptedException e1) {
+		}
+	}
+	
+	private class ShutdownHook extends Thread {
+		public void run() {
+			closeAll();
+		}
 	}
 	
 }
