@@ -23,6 +23,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import hd3gtv.embddb.tools.InteractiveConsoleMode;
+import hd3gtv.factory.ConfFactKey;
+import hd3gtv.factory.ConfFactParam;
 import hd3gtv.tools.StoppableThread;
 
 public class ITQueue {
@@ -31,7 +33,8 @@ public class ITQueue {
 	private ArrayList<Executor> executors;
 	private int executor_count;
 	
-	public ITQueue(int executor_count) {
+	@ConfFactKey("queue")
+	public ITQueue(@ConfFactParam("execcount") int executor_count) {
 		pending_tasks = new LinkedList<>();
 		executors = new ArrayList<>();
 		this.executor_count = executor_count;

@@ -16,12 +16,12 @@
 */
 package hd3gtv.embddb;
 
-import java.net.InetSocketAddress;
 import java.security.Security;
 
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import hd3gtv.factory.ConfiguredFactory;
 import hd3gtv.internaltaskqueue.ITQueue;
 
 public class MainClass {
@@ -31,17 +31,26 @@ public class MainClass {
 	public static void main(String[] args) throws Exception {
 		Security.addProvider(new BouncyCastleProvider());
 		
-		ITQueue itqueue = new ITQueue(2);
-		PoolManager poolmanager = new PoolManager(itqueue, "test");
-		poolmanager.setEnableLoopClients(true);
-		poolmanager.startServer();
+		// TODO Create multiway configuration: app default props (ro), local flat file (rw), external updating (rw), with namespace scope and level (debug/prod)
+		// TODO found a method for key value[] configuration
+		
+		ConfiguredFactory cfact = new ConfiguredFactory();
+		ITQueue q = cfact.create(ITQueue.class, true);
+		System.out.println(q);
+		
+		/*ITQueue itqueue = new ITQueue(2);
+				PoolManager poolmanager = new PoolManager(itqueue, "test");
+				poolmanager.setEnableLoopClients(true);
+				poolmanager.startServer();*/
 		
 		// TODO manage white/black range addr list for autodiscover
 		
-		Thread.sleep(50);
-		poolmanager.createClient(new InetSocketAddress("127.0.0.1", poolmanager.getProtocol().getDefaultTCPPort())).doHandCheck();// FIXME manage default list
+		System.exit(0);
 		
-		poolmanager.startConsole();
+		Thread.sleep(50);
+		// poolmanager.createClient(new InetSocketAddress("127.0.0.1", poolmanager.getProtocol().getDefaultTCPPort())).doHandCheck();// FIXME manage default list
+		
+		// poolmanager.startConsole();
 	}
 	
 }
