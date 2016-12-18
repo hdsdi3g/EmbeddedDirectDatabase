@@ -31,6 +31,8 @@ public class MainClass {
 	public static void main(String[] args) throws Exception {
 		Security.addProvider(new BouncyCastleProvider());
 		
+		System.exit(0);
+		
 		// TODO Create multiway configuration: app default props (ro), local flat file (rw), external updating (rw), with namespace scope and level (debug/prod)
 		// TODO found a method for key value[] configuration
 		

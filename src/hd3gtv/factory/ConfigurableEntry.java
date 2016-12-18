@@ -11,19 +11,35 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 10 déc. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
  * 
 */
 package hd3gtv.factory;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ ElementType.PARAMETER })
-@Deprecated
-public @interface ConfFactParam {
-	public String value();
+abstract class ConfigurableEntry<T> {
+	
+	private ConfigurableEntries parent;
+	private T value;
+	
+	ConfigurableEntry(ConfigurableEntries parent) {
+		this.parent = parent;
+	}
+	
+	public T get() {
+		return value;
+	}
+	
+	public synchronized ConfigurableEntry<T> set(T value) {
+		if (this.value == null ^ value == null) {
+			// TODO callback change !
+			this.value = value;
+		} else if (value.equals(value) == false) {
+			// TODO callback change !
+			this.value = value;
+		}
+		return this;
+	}
+	
+	// TODO impex
+	
 }
