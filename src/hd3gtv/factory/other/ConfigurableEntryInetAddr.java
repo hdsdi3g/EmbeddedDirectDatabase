@@ -14,11 +14,13 @@
  * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factory.other;
 
-public class ConfigurableEntryBoolean extends ConfigurableEntry<Boolean> {
+import java.net.InetAddress;
+
+public class ConfigurableEntryInetAddr extends ConfigurableEntry<InetAddress> {
 	
-	ConfigurableEntryBoolean(ConfigurableEntries parent) {
+	ConfigurableEntryInetAddr(ConfigurableEntries parent) {
 		super(parent);
 	}
 	

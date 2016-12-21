@@ -14,12 +14,30 @@
  * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factory.other;
 
-public class ConfigurableEntryNumber extends ConfigurableEntry<Number> {
+abstract class ConfigurableEntry<T> {
 	
-	ConfigurableEntryNumber(ConfigurableEntries parent) {
-		super(parent);
+	private ConfigurableEntries parent;
+	private T value;
+	
+	ConfigurableEntry(ConfigurableEntries parent) {
+		this.parent = parent;
+	}
+	
+	public T get() {
+		return value;
+	}
+	
+	public synchronized ConfigurableEntry<T> set(T value) {
+		if (this.value == null ^ value == null) {
+			// TODO callback change !
+			this.value = value;
+		} else if (value.equals(value) == false) {
+			// TODO callback change !
+			this.value = value;
+		}
+		return this;
 	}
 	
 	// TODO impex

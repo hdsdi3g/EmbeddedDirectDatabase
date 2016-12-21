@@ -21,7 +21,8 @@ import java.security.Security;
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
-import hd3gtv.factory.ConfiguredFactory;
+import hd3gtv.factory.GlobalObjectFactory;
+import hd3gtv.factory.demo.Demo;
 import hd3gtv.internaltaskqueue.ITQueue;
 
 public class MainClass {
@@ -31,19 +32,16 @@ public class MainClass {
 	public static void main(String[] args) throws Exception {
 		Security.addProvider(new BouncyCastleProvider());
 		
+		GlobalObjectFactory gof = new GlobalObjectFactory();
+		Demo demo = gof.create(Demo.class);
+		System.out.println(gof.toString());
+		
 		System.exit(0);
 		
-		// TODO Create multiway configuration: app default props (ro), local flat file (rw), external updating (rw), with namespace scope and level (debug/prod)
-		// TODO found a method for key value[] configuration
-		
-		ConfiguredFactory cfact = new ConfiguredFactory();
-		ITQueue q = cfact.create(ITQueue.class, true);
-		System.out.println(q);
-		
-		/*ITQueue itqueue = new ITQueue(2);
-				PoolManager poolmanager = new PoolManager(itqueue, "test");
-				poolmanager.setEnableLoopClients(true);
-				poolmanager.startServer();*/
+		ITQueue itqueue = new ITQueue(2);
+		PoolManager poolmanager = new PoolManager(itqueue, "test");
+		poolmanager.setEnableLoopClients(true);
+		poolmanager.startServer();
 		
 		// TODO manage white/black range addr list for autodiscover
 		

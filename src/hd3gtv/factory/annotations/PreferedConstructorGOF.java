@@ -11,10 +11,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 10 déc. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 21 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factory.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -23,7 +23,6 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ ElementType.CONSTRUCTOR })
-@Deprecated
-public @interface ConfFactKey {
-	public String value();
+public @interface PreferedConstructorGOF {
+	
 }

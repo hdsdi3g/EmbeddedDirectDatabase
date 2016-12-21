@@ -11,16 +11,20 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 21 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factory.annotations;
 
-public class ConfigurableEntryTree extends ConfigurableEntry<ConfigurableEntries> {
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ ElementType.PARAMETER })
+public @interface ListOfGOF {
 	
-	ConfigurableEntryTree(ConfigurableEntries parent) {
-		super(parent);
-	}
+	public Class<?> value();
 	
-	// TODO impex
 }

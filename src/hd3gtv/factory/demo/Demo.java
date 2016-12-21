@@ -11,17 +11,26 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 20 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factory.demo;
 
-public class ConfigurableEntryString extends ConfigurableEntry<String> {
+import java.net.URL;
+import java.util.ArrayList;
+
+import hd3gtv.factory.annotations.DefaultGOF;
+import hd3gtv.factory.annotations.ListOfGOF;
+import hd3gtv.factory.annotations.NameGOF;
+import hd3gtv.factory.annotations.PreferedConstructorGOF;
+
+public class Demo {
 	
-	ConfigurableEntryString(ConfigurableEntries parent) {
-		super(parent);
+	@PreferedConstructorGOF
+	public Demo(@DefaultGOF("AAA") String ma_var, @ListOfGOF(URL.class) @NameGOF("urls") ArrayList<URL> urls) {
 	}
 	
-	// TODO impex
+	public Demo(int nop) {
+	}
 	
 }

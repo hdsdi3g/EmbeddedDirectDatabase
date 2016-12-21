@@ -14,13 +14,13 @@
  * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factory.other;
 
-import java.net.InetAddress;
+import java.net.URL;
 
-public class ConfigurableEntryInetAddr extends ConfigurableEntry<InetAddress> {
+public class ConfigurableEntryURL extends ConfigurableEntry<URL> {
 	
-	ConfigurableEntryInetAddr(ConfigurableEntries parent) {
+	ConfigurableEntryURL(ConfigurableEntries parent) {
 		super(parent);
 	}
 	

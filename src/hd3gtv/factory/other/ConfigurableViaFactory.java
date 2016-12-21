@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factory.other;
 
 import java.util.concurrent.Callable;
 
@@ -23,7 +23,7 @@ public interface ConfigurableViaFactory<T extends ConfigurableParam> {
 	/**
 	 * Factory startup this object with clean configuration.
 	 */
-	public void initializationViaFactory(ConfiguredFactory factory, T value);
+	public void initializationViaFactory(_ConfiguredFactory factory, T value);
 	
 	/**
 	 * Factory want to destroy this object.

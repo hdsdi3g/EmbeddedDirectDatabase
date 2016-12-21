@@ -11,22 +11,19 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 11 déc. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 10 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factory.other;
 
-import java.util.HashMap;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-@FunctionalInterface
-public interface OnChangeProperties {
-	
-	public void didUpdate(String key, String value);
-	
-	public default void didUpdate(HashMap<String, String> values) {
-		values.forEach((key, value) -> {
-			didUpdate(key, value);
-		});
-	}
-	
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ ElementType.PARAMETER })
+@Deprecated
+public @interface ConfFactParam {
+	public String value();
 }

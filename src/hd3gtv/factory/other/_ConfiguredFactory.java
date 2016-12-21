@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 10 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factory.other;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
@@ -38,17 +38,17 @@ import com.google.gson.JsonParser;
  * Create object based on current configuration.
  * Can update created objects if the configuration is modified.
  */
-public final class ConfiguredFactory {
+public final class _ConfiguredFactory {
 	// TODO create personalized factories ex: gson -> gson (+declarations) / simple / pretty
 	
-	private static Logger log = Logger.getLogger(ConfiguredFactory.class);
+	private static Logger log = Logger.getLogger(_ConfiguredFactory.class);
 	private static JsonParser parser = new JsonParser();
 	
 	private HashMap<Class<?>, Object> created_objects_by_classes;
 	private ObservedProperties properties;
 	private ChangeProperties change_properties;
 	
-	public ConfiguredFactory() {
+	public _ConfiguredFactory() {
 		created_objects_by_classes = new HashMap<>();
 		
 		change_properties = new ChangeProperties();

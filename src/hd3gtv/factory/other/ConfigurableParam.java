@@ -14,16 +14,12 @@
  * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factory.other;
 
-import java.util.ArrayList;
-
-public class ConfigurableEntryList<T extends ConfigurableEntry<T>> extends ConfigurableEntry<ArrayList<T>> {
+public interface ConfigurableParam {
 	
-	ConfigurableEntryList(ConfigurableEntries parent) {
-		super(parent);
-	}
+	public ConfigurableEntries exportConfigurationToFactory();
 	
-	// TODO impex
+	public void importConfigurationFromFactory(ConfigurableEntries configuration);
 	
 }
