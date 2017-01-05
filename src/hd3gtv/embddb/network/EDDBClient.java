@@ -16,16 +16,17 @@
 */
 package hd3gtv.embddb.network;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
 import java.util.ArrayList;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
+import hd3gtv.embddb.ClientUnit;
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.tools.Hexview;
 
@@ -38,7 +39,7 @@ public class EDDBClient {
 	private Protocol protocol;
 	private PoolManager pool;
 	
-	public EDDBClient(Protocol protocol, InetSocketAddress server) throws Exception {
+	public EDDBClient(Protocol protocol, InetSocketAddress server) throws IOException {
 		this.server = server;
 		if (server == null) {
 			throw new NullPointerException("\"server\" can't to be null");
@@ -47,15 +48,11 @@ public class EDDBClient {
 		if (protocol == null) {
 			throw new NullPointerException("\"protocol\" can't to be null");
 		}
-		open();
+		channel = AsynchronousSocketChannel.open();
 	}
 	
 	public String toString() {
 		return getClass().getSimpleName() + "_" + server;
-	}
-	
-	public void open() throws Exception {
-		channel = AsynchronousSocketChannel.open();
 	}
 	
 	public void setPool(PoolManager pool) {
@@ -63,11 +60,11 @@ public class EDDBClient {
 	}
 	
 	/**
-	 * Blocking.
+	 * Non blocking.
 	 */
-	public void connect() throws InterruptedException, ExecutionException {
+	public void connect(ClientUnit referer, CompletionHandler<Void, ClientUnit> callback) {
 		log.debug("Try to connect to server " + server);
-		channel.connect(server).get();
+		channel.connect(server, referer, callback);
 	}
 	
 	/**

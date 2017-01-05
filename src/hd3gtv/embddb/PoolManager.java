@@ -18,6 +18,7 @@ package hd3gtv.embddb;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.channels.CompletionHandler;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -81,6 +82,8 @@ public class PoolManager {
 		queue.setConsole(console);
 		
 		protocol = new Protocol(master_password_key);
+		
+		connect_handler = new ConnectHandler();
 		
 		dialogs = new ArrayList<>();
 		dialogs.add(new HandCheck(protocol));// TODO better implementation...
@@ -223,20 +226,41 @@ public class PoolManager {
 	 * Client will be add to current list if can correctly connect to server.
 	 * @return null if the client already exists
 	 */
-	public ClientUnit createClient(InetSocketAddress server) throws Exception {
+	public void createClient(InetSocketAddress server) throws IOException {
 		if (validAddress(server) == false) {
-			return null;
+			return;
 		}
 		
 		if (clients.stream().map(c -> {
 			return c.getConnectedServer();
 		}).anyMatch(p -> {
 			return p.equals(server);
-		})) {
-			return null;
+		}) == false) {
+			new ClientUnit(this, server, connect_handler);
+		}
+	}
+	
+	private ConnectHandler connect_handler;
+	
+	class ConnectHandler implements CompletionHandler<Void, ClientUnit> {
+		
+		private ConnectHandler() {
 		}
 		
-		return new ClientUnit(this, server);
+		public void completed(Void result, ClientUnit newclient) {
+			newclient.doHandCheck(c -> {
+				declareClient(newclient);
+			});
+		}
+		
+		public void failed(Throwable exc, ClientUnit attachment) {
+			log.error("Can't create TCP Client to " + attachment.getConnectedServer(), exc);
+		}
+		
+	}
+	
+	public ConnectHandler getConnectHandler() {
+		return connect_handler;
 	}
 	
 	synchronized void declareClient(ClientUnit client) {

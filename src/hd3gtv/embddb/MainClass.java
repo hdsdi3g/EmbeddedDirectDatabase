@@ -16,13 +16,17 @@
 */
 package hd3gtv.embddb;
 
+import java.io.File;
+import java.net.InetSocketAddress;
 import java.security.Security;
+import java.util.Arrays;
+import java.util.Properties;
+import java.util.function.Consumer;
 
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
-import hd3gtv.factory.GlobalObjectFactory;
-import hd3gtv.factory.demo.Demo;
 import hd3gtv.internaltaskqueue.ITQueue;
 
 public class MainClass {
@@ -32,12 +36,6 @@ public class MainClass {
 	public static void main(String[] args) throws Exception {
 		Security.addProvider(new BouncyCastleProvider());
 		
-		GlobalObjectFactory gof = new GlobalObjectFactory();
-		Demo demo = gof.create(Demo.class);
-		System.out.println(gof.toString());
-		
-		System.exit(0);
-		
 		ITQueue itqueue = new ITQueue(2);
 		PoolManager poolmanager = new PoolManager(itqueue, "test");
 		poolmanager.setEnableLoopClients(true);
@@ -45,12 +43,38 @@ public class MainClass {
 		
 		// TODO manage white/black range addr list for autodiscover
 		
-		System.exit(0);
+		Properties conf = new Properties();
+		
+		conf.load(FileUtils.openInputStream(new File("conf.properties")));
+		
+		importConf(conf, poolmanager.getProtocol().getDefaultTCPPort(), addr -> {
+			try {
+				poolmanager.createClient(addr);
+			} catch (Exception e) {
+				log.error("Can't create client: " + addr, e);
+			}
+		});
 		
 		Thread.sleep(50);
-		// poolmanager.createClient(new InetSocketAddress("127.0.0.1", poolmanager.getProtocol().getDefaultTCPPort())).doHandCheck();// FIXME manage default list
 		
-		// poolmanager.startConsole();
+		poolmanager.startConsole();
+		
+		/*GlobalObjectFactory gof = new GlobalObjectFactory();
+		Demo demo = gof.create(Demo.class);
+		System.out.println(gof.toString());
+		System.exit(0);*/
+	}
+	
+	private static void importConf(Properties conf, int default_port, Consumer<InetSocketAddress> callback_addr) throws Exception {
+		if (conf.containsKey("hosts") == false) {
+			throw new NullPointerException("No hosts in configuration");
+		}
+		String hosts = conf.getProperty("hosts");
+		
+		Arrays.asList(hosts.split(" ")).stream().map(addr -> {
+			log.debug("Found host in configuration: " + addr);
+			return new InetSocketAddress(addr, default_port);
+		}).forEach(callback_addr::accept);
 	}
 	
 }

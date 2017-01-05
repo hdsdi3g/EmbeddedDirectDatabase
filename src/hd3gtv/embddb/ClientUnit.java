@@ -21,9 +21,11 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 import org.apache.log4j.Logger;
 
+import hd3gtv.embddb.PoolManager.ConnectHandler;
 import hd3gtv.embddb.dialect.ClientSayToServer;
 import hd3gtv.embddb.dialect.Dialog;
 import hd3gtv.embddb.dialect.dialogs.ClientList;
@@ -43,7 +45,7 @@ public class ClientUnit {
 	
 	private long server_delta_time;
 	
-	ClientUnit(PoolManager pool, InetSocketAddress server) throws IOException {
+	ClientUnit(PoolManager pool, InetSocketAddress server, ConnectHandler connect_handler) throws IOException {
 		this.pool = pool;
 		if (pool == null) {
 			throw new NullPointerException("\"pool\" can't to be null");
@@ -55,13 +57,9 @@ public class ClientUnit {
 		server_delta_time = 0;
 		
 		log.debug("Create client: " + server);
-		try {
-			internal = new EDDBClient(pool.getProtocol(), server);
-			internal.connect();
-		} catch (Exception e) {
-			throw new IOException("Can't create TCP Client to " + server, e);
-		}
-		pool.declareClient(this);
+		
+		internal = new EDDBClient(pool.getProtocol(), server);
+		internal.connect(this, connect_handler);
 	}
 	
 	public String toString() {
@@ -131,9 +129,10 @@ public class ClientUnit {
 		}
 	}
 	
-	public void doHandCheck() {
+	public void doHandCheck(Consumer<ClientUnit> on_done) {
 		internalRequest(HandCheck.class, null, label -> {
 			log.debug("HandCheck is correct: " + label);
+			on_done.accept(this);
 		}, e -> {
 			log.error("Can't do HandCheck with server " + server, e);
 			pool.removeClient(this);
@@ -189,16 +188,12 @@ public class ClientUnit {
 	
 	public void getFromConnectedServerThisActualClientList(ArrayList<InetSocketAddress> all_current_connected) {
 		internalRequest(ClientList.class, all_current_connected, distant_list -> {
-			distant_list.forEach(v -> {
-				pool.getQueue().addToQueue(v, ClientUnit.class, server -> {
-					return pool.createClient(server);
-				}, (i, cli) -> {
-					if (cli != null) {
-						log.info("Add new server (imported from " + server + "): " + cli);
-					}
-				}, (i, u) -> {
-					log.warn("Can't to connect to server " + i + ", but it really exists and should be contactable (" + server + " can do it).", u);
-				});
+			distant_list.forEach(s -> {
+				try {
+					pool.createClient(s);
+				} catch (Exception e1) {
+					log.warn("Can't to connect to server " + s + ", but it really exists and should be contactable (" + server + " can do it).", e1);
+				}
 			});
 		}, e -> {
 			log.error("Can't get client list from server " + server, e);

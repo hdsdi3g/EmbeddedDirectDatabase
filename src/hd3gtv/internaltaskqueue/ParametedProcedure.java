@@ -16,6 +16,11 @@
 */
 package hd3gtv.internaltaskqueue;
 
+import java.util.function.Consumer;
+
+/**
+ * Use {@link Consumer} for remove Exception handling.
+ */
 @FunctionalInterface
 public interface ParametedProcedure<T> {
 	
