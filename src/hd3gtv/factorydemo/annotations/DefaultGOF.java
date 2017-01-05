@@ -11,26 +11,20 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 20 déc. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 21 déc. 2016
  * 
 */
-package hd3gtv.factory.demo;
+package hd3gtv.factorydemo.annotations;
 
-import java.net.URL;
-import java.util.ArrayList;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-import hd3gtv.factory.annotations.DefaultGOF;
-import hd3gtv.factory.annotations.ListOfGOF;
-import hd3gtv.factory.annotations.NameGOF;
-import hd3gtv.factory.annotations.PreferedConstructorGOF;
-
-public class Demo {
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ ElementType.PARAMETER })
+public @interface DefaultGOF {
 	
-	@PreferedConstructorGOF
-	public Demo(@DefaultGOF("AAA") String ma_var, @ListOfGOF(URL.class) @NameGOF("urls") ArrayList<URL> urls) {
-	}
-	
-	public Demo(int nop) {
-	}
+	public String value();
 	
 }

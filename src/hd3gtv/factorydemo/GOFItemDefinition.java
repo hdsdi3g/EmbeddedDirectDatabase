@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 21 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factorydemo;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import hd3gtv.factory.annotations.PreferedConstructorGOF;
+import hd3gtv.factorydemo.annotations.PreferedConstructorGOF;
 
 /**
  * An analyst of class parameters.

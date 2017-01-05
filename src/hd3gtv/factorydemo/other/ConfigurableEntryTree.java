@@ -14,14 +14,13 @@
  * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
  * 
 */
-package hd3gtv.factory.other;
+package hd3gtv.factorydemo.other;
 
-public class ConfigurableEntryString extends ConfigurableEntry<String> {
+public class ConfigurableEntryTree extends ConfigurableEntry<ConfigurableEntries> {
 	
-	ConfigurableEntryString(ConfigurableEntries parent) {
+	ConfigurableEntryTree(ConfigurableEntries parent) {
 		super(parent);
 	}
 	
 	// TODO impex
-	
 }

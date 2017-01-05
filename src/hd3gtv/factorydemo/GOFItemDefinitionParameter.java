@@ -14,15 +14,15 @@
  * Copyright (C) hdsdi3g for hd3g.tv 21 déc. 2016
  * 
 */
-package hd3gtv.factory;
+package hd3gtv.factorydemo;
 
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Collection;
 
-import hd3gtv.factory.annotations.DefaultGOF;
-import hd3gtv.factory.annotations.ListOfGOF;
-import hd3gtv.factory.annotations.NameGOF;
+import hd3gtv.factorydemo.annotations.DefaultGOF;
+import hd3gtv.factorydemo.annotations.ListOfGOF;
+import hd3gtv.factorydemo.annotations.NameGOF;
 
 class GOFItemDefinitionParameter {
 	

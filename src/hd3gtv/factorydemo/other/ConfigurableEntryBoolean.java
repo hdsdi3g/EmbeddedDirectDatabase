@@ -14,11 +14,11 @@
  * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
  * 
 */
-package hd3gtv.factory.other;
+package hd3gtv.factorydemo.other;
 
-public class ConfigurableEntryNumber extends ConfigurableEntry<Number> {
+public class ConfigurableEntryBoolean extends ConfigurableEntry<Boolean> {
 	
-	ConfigurableEntryNumber(ConfigurableEntries parent) {
+	ConfigurableEntryBoolean(ConfigurableEntries parent) {
 		super(parent);
 	}
 	

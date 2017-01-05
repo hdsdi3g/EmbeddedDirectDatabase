@@ -14,13 +14,13 @@
  * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
  * 
 */
-package hd3gtv.factory.other;
+package hd3gtv.factorydemo.other;
 
-import java.util.ArrayList;
+import java.util.LinkedHashMap;
 
-public class ConfigurableEntryList<T extends ConfigurableEntry<T>> extends ConfigurableEntry<ArrayList<T>> {
+public class ConfigurableEntryMap<T extends ConfigurableEntry<T>> extends ConfigurableEntry<LinkedHashMap<String, T>> {
 	
-	ConfigurableEntryList(ConfigurableEntries parent) {
+	ConfigurableEntryMap(ConfigurableEntries parent) {
 		super(parent);
 	}
 	

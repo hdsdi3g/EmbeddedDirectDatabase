@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 10 déc. 2016
  * 
 */
-package hd3gtv.factory.other;
+package hd3gtv.factorydemo.other;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;

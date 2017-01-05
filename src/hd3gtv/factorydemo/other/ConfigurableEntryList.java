@@ -14,13 +14,16 @@
  * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
  * 
 */
-package hd3gtv.factory.other;
+package hd3gtv.factorydemo.other;
 
-public class ConfigurableEntryTree extends ConfigurableEntry<ConfigurableEntries> {
+import java.util.ArrayList;
+
+public class ConfigurableEntryList<T extends ConfigurableEntry<T>> extends ConfigurableEntry<ArrayList<T>> {
 	
-	ConfigurableEntryTree(ConfigurableEntries parent) {
+	ConfigurableEntryList(ConfigurableEntries parent) {
 		super(parent);
 	}
 	
 	// TODO impex
+	
 }

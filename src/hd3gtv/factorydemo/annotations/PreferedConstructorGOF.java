@@ -11,19 +11,18 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 17 déc. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 21 déc. 2016
  * 
 */
-package hd3gtv.factory.other;
+package hd3gtv.factorydemo.annotations;
 
-import java.net.InetAddress;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-public class ConfigurableEntryInetAddr extends ConfigurableEntry<InetAddress> {
-	
-	ConfigurableEntryInetAddr(ConfigurableEntries parent) {
-		super(parent);
-	}
-	
-	// TODO impex
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ ElementType.CONSTRUCTOR })
+public @interface PreferedConstructorGOF {
 	
 }
