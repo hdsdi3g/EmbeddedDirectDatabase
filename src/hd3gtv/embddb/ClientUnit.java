@@ -144,7 +144,7 @@ public class ClientUnit {
 	/**
 	 * Network jitter filter
 	 */
-	public static final long MIN_TOLERANCE_DELTA_TIME_WILL_UPDATE_CHANGE = TimeUnit.MILLISECONDS.toMillis(50);
+	public static final long MIN_TOLERANCE_DELTA_TIME_WILL_UPDATE_CHANGE = TimeUnit.MILLISECONDS.toMillis(200);
 	
 	public void doPingPong() {
 		internalRequest(PingPongTime.class, UUID.randomUUID(), server_date -> {

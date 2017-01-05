@@ -64,7 +64,12 @@ public class EDDBNode {
 		console.addOrder("cl", "Connected client list", "Display the connected client list (as server)", EDDBNode.class, param -> {
 			System.out.println("Display " + connected_clients.size() + " connected client list:");
 			connected_clients.forEach(client -> {
-				System.out.println("Client: " + client.getHostString() + "/" + client.getHostName() + ":" + client.getPort());
+				String name = client.getHostName();
+				if (client.getHostString().equals(name)) {
+					System.out.println("Client: " + client.getHostString() + ":" + client.getPort());
+				} else {
+					System.out.println("Client: " + client.getHostString() + " " + name + ":" + client.getPort());
+				}
 			});
 		});
 	}
