@@ -30,7 +30,7 @@ import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.dialect.ClientSayToServer;
 import hd3gtv.embddb.dialect.Dialog;
 import hd3gtv.embddb.dialect.ServerSayToClient;
-import hd3gtv.embddb.network.RequestBlock;
+import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 import hd3gtv.internaltaskqueue.ParametedWithResultProcedure;
 

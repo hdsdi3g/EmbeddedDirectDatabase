@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 21 nov. 2016
  * 
 */
-package hd3gtv.embddb.network;
+package hd3gtv.embddb.socket;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

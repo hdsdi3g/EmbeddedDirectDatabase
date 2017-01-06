@@ -18,7 +18,7 @@ package hd3gtv.embddb.dialect;
 
 import java.util.ArrayList;
 
-import hd3gtv.embddb.network.RequestBlock;
+import hd3gtv.embddb.socket.RequestBlock;
 
 public interface ServerSayToClient {
 	

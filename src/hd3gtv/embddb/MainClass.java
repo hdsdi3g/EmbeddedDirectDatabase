@@ -41,6 +41,9 @@ public class MainClass {
 		poolmanager.setEnableLoopClients(true);
 		poolmanager.startServer();
 		
+		poolmanager.startConsole();
+		System.exit(0);
+		
 		// TODO manage white/black range addr list for autodiscover
 		
 		Properties conf = new Properties();

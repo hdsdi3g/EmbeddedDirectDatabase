@@ -18,7 +18,6 @@ package hd3gtv.embddb;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
-import java.nio.channels.CompletionHandler;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,14 +32,15 @@ import java.util.stream.Collectors;
 import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.dialect.Dialog;
+import hd3gtv.embddb.dialect.ResponseHandler;
 import hd3gtv.embddb.dialect.dialogs.ClientList;
 import hd3gtv.embddb.dialect.dialogs.DisconnectNode;
 import hd3gtv.embddb.dialect.dialogs.HandCheck;
 import hd3gtv.embddb.dialect.dialogs.PingPongTime;
-import hd3gtv.embddb.network.EDDBClient;
-import hd3gtv.embddb.network.EDDBNode;
-import hd3gtv.embddb.network.Protocol;
-import hd3gtv.embddb.network.RequestBlock;
+import hd3gtv.embddb.socket.ChannelBucketManager;
+import hd3gtv.embddb.socket.Protocol;
+import hd3gtv.embddb.socket.RequestBlock;
+import hd3gtv.embddb.socket.SocketServer;
 import hd3gtv.embddb.tools.InteractiveConsoleMode;
 import hd3gtv.internaltaskqueue.ActivityScheduler;
 import hd3gtv.internaltaskqueue.ITQueue;
@@ -54,7 +54,10 @@ public class PoolManager {
 	private ArrayList<Dialog<?, ?>> dialogs;
 	private HashMap<Class<?>, Dialog<?, ?>> dialogs_by_class;
 	
-	private EDDBNode local_server;
+	private SocketServer local_server;
+	private ChannelBucketManager buckets_manager;
+	private ResponseHandler response_handler;
+	
 	private ArrayList<ClientUnit> clients;
 	private Protocol protocol;
 	
@@ -83,8 +86,6 @@ public class PoolManager {
 		
 		protocol = new Protocol(master_password_key);
 		
-		connect_handler = new ConnectHandler();
-		
 		dialogs = new ArrayList<>();
 		dialogs.add(new HandCheck(protocol));// TODO better implementation...
 		dialogs.add(new PingPongTime());
@@ -102,9 +103,12 @@ public class PoolManager {
 		
 		scheduled_autodiscover = Executors.newSingleThreadScheduledExecutor();
 		shutdown_hook = new ShutdownHook();
+		
+		response_handler = new ResponseHandler(this);
+		buckets_manager = new ChannelBucketManager(protocol, response_handler, queue);
 	}
 	
-	Protocol getProtocol() {
+	public Protocol getProtocol() {
 		return protocol;
 	}
 	
@@ -113,18 +117,11 @@ public class PoolManager {
 	}
 	
 	public void startServer(InetSocketAddress listen) throws IOException {
-		local_server = new EDDBNode(protocol, (blocks, source) -> {
-			try {
-				return getClientToServerRequestFirstValid(blocks).getServerSentenceToSendToClient(source, blocks).getBlocksToSendToClient();
-			} catch (Exception e) {
-				log.warn("Server error", e);
-			}
-			return null;
-		});
+		local_server = new SocketServer(this, buckets_manager);
+		
 		if (listen != null) {
-			local_server.setListenAddr(listen);
+			local_server.setListen(listen);
 		}
-		local_server.setConsole(console);
 		
 		if (listen != null) {
 			log.info("Start local server on " + listen);
@@ -162,9 +159,11 @@ public class PoolManager {
 	}
 	
 	public void stopRegularAutodiscover() {
-		if (regular_autodiscover.isCancelled() == false) {
-			log.info("Stop regular autodiscover");
-			regular_autodiscover.cancel(false);
+		if (regular_autodiscover != null) {
+			if (regular_autodiscover.isCancelled() == false) {
+				log.info("Stop regular autodiscover");
+				regular_autodiscover.cancel(false);
+			}
 		}
 	}
 	
@@ -177,11 +176,7 @@ public class PoolManager {
 		stopRegularAutodiscover();
 		sayToClientsToDisconnectMe();
 		
-		try {
-			local_server.stop();
-		} catch (IOException e) {
-			log.error("Can't stop local server");
-		}
+		local_server.waitToStop();
 		
 		try {
 			Runtime.getRuntime().removeShutdownHook(shutdown_hook);
@@ -236,31 +231,8 @@ public class PoolManager {
 		}).anyMatch(p -> {
 			return p.equals(server);
 		}) == false) {
-			new ClientUnit(this, server, connect_handler);
+			// new ClientUnit(this, server, connect_handler);TODO
 		}
-	}
-	
-	private ConnectHandler connect_handler;
-	
-	class ConnectHandler implements CompletionHandler<Void, ClientUnit> {
-		
-		private ConnectHandler() {
-		}
-		
-		public void completed(Void result, ClientUnit newclient) {
-			newclient.doHandCheck(c -> {
-				declareClient(newclient);
-			});
-		}
-		
-		public void failed(Throwable exc, ClientUnit attachment) {
-			log.error("Can't create TCP Client to " + attachment.getConnectedServer(), exc);
-		}
-		
-	}
-	
-	public ConnectHandler getConnectHandler() {
-		return connect_handler;
 	}
 	
 	synchronized void declareClient(ClientUnit client) {
@@ -284,7 +256,7 @@ public class PoolManager {
 		clients.remove(client);
 	}
 	
-	public synchronized void removeClient(EDDBClient client) {
+	/*public synchronized void removeClient(EDDBClient client) {
 		log.info("Remove client " + client);
 		
 		clients.removeIf(p -> {
@@ -294,7 +266,7 @@ public class PoolManager {
 			}
 			return false;
 		});
-	}
+	}*/
 	
 	public void removeClient(InetSocketAddress client) {
 		log.info("Remove client " + client);

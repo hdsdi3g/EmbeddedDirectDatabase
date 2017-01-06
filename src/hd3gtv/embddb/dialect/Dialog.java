@@ -20,7 +20,7 @@ import java.net.InetAddress;
 import java.util.ArrayList;
 
 import hd3gtv.embddb.ClientUnit;
-import hd3gtv.embddb.network.RequestBlock;
+import hd3gtv.embddb.socket.RequestBlock;
 
 /**
  * All new Dialogs must be declared to PoolManager

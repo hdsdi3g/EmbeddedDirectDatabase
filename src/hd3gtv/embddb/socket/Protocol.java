@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 21 nov. 2016
  * 
 */
-package hd3gtv.embddb.network;
+package hd3gtv.embddb.socket;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -46,6 +46,7 @@ import hd3gtv.embddb.dialect.Version;
 import hd3gtv.embddb.tools.Hexview;
 
 public class Protocol {
+	private static final Logger log = Logger.getLogger(Protocol.class);
 	
 	public static final Version VERSION = Version.V1;
 	public static final Charset UTF8 = Charset.forName("UTF-8");
@@ -60,7 +61,9 @@ public class Protocol {
 	
 	private IvParameterSpec salt;
 	private SecretKey skeySpec;
-	private static final Logger log = Logger.getLogger(Protocol.class);
+	
+	private SocketHandlerReader handler_reader;
+	private SocketHandlerWriter handler_writer;
 	
 	public Protocol(String master_password_key) throws NoSuchAlgorithmException, NoSuchProviderException, UnsupportedEncodingException {
 		if (master_password_key == null) {
@@ -69,6 +72,8 @@ public class Protocol {
 		if (master_password_key.isEmpty()) {
 			throw new NullPointerException("\"master_password_key\" can't to be empty");
 		}
+		handler_reader = new SocketHandlerReader();
+		handler_writer = new SocketHandlerWriter();
 		
 		MessageDigest md = MessageDigest.getInstance("SHA-256", "BC");
 		byte[] key = md.digest(master_password_key.getBytes("UTF-8"));
@@ -81,27 +86,29 @@ public class Protocol {
 		return 9160;
 	}
 	
-	ByteBuffer encrypt(ByteBuffer buffer_source) throws GeneralSecurityException {
-		return encryptDecrypt(buffer_source, Cipher.ENCRYPT_MODE);
+	public SocketHandlerReader getHandlerReader() {
+		return handler_reader;
 	}
 	
-	ByteBuffer decrypt(ByteBuffer buffer_source) throws GeneralSecurityException {
-		return encryptDecrypt(buffer_source, Cipher.DECRYPT_MODE);
+	public SocketHandlerWriter getHandlerWriter() {
+		return handler_writer;
 	}
 	
-	private ByteBuffer encryptDecrypt(ByteBuffer buffer_source, int mode) throws GeneralSecurityException {
+	public void encrypt(ByteBuffer buffer) throws GeneralSecurityException {
+		encryptDecrypt(buffer, Cipher.ENCRYPT_MODE);
+	}
+	
+	public void decrypt(ByteBuffer buffer) throws GeneralSecurityException {
+		encryptDecrypt(buffer, Cipher.DECRYPT_MODE);
+	}
+	
+	private void encryptDecrypt(ByteBuffer buffer, int mode) throws GeneralSecurityException {
 		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
 		cipher.init(mode, skeySpec, salt);
-		
-		ByteBuffer dest = ByteBuffer.allocateDirect(cipher.getOutputSize(buffer_source.remaining()));
-		
-		// TODO Note: this method should be copy-safe, which means the input and output buffers can reference the same block of memory and no unprocessed input data is overwritten when the result is
-		// copied into the output buffer.
-		cipher.doFinal(buffer_source, dest);
-		return dest;
+		cipher.doFinal(buffer.duplicate(), buffer);
 	}
 	
-	ArrayList<RequestBlock> decompressBlocks(byte[] uncrypted_content) throws IOException {
+	public ArrayList<RequestBlock> decompressBlocks(byte[] uncrypted_content) throws IOException {
 		if (DISPLAY_HEXDUMP) {
 			Hexview.tracelog(uncrypted_content, log, "Uncrypted zipped content");
 		}
@@ -128,7 +135,7 @@ public class Protocol {
 	/**
 	 * @throws IOException if size is > EDDBNode.BUFFER_SIZE
 	 */
-	byte[] compressBlocks(ArrayList<RequestBlock> response_blocks) throws IOException {
+	public byte[] compressBlocks(ArrayList<RequestBlock> response_blocks) throws IOException {
 		ByteArrayOutputStream baos = new ByteArrayOutputStream(BUFFER_SIZE);
 		
 		ZipOutputStream zos = new ZipOutputStream(baos);

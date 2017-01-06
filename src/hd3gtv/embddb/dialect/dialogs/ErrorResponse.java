@@ -19,7 +19,7 @@ package hd3gtv.embddb.dialect.dialogs;
 import java.util.ArrayList;
 
 import hd3gtv.embddb.dialect.ServerSayToClient;
-import hd3gtv.embddb.network.RequestBlock;
+import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 
 public class ErrorResponse implements ServerSayToClient {
