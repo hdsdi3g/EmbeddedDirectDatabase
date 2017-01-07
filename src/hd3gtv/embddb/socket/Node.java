@@ -11,7 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 6 janv. 2017
+ * Copyright (C) hdsdi3g for hd3g.tv 7 janv. 2017
  * 
 */
 package hd3gtv.embddb.socket;
@@ -21,66 +21,71 @@ import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.ReadPendingException;
+import java.nio.channels.spi.AsynchronousChannelProvider;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.dialect.ResponseHandler;
+import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.tools.Hexview;
-import hd3gtv.internaltaskqueue.ITQueue;
 
-public class ChannelBucketManager {
+public class Node {
 	
-	private static final Logger log = Logger.getLogger(ChannelBucketManager.class);
+	private static final Logger log = Logger.getLogger(Node.class);
 	
-	private List<ChannelBucket> buckets;// TODO replace by a true manager -> catch add/remove, do a for all
-	private Protocol protocol;
-	private ResponseHandler request_callbacks;
-	private ITQueue queue;
-	private SocketHandler read_handler;
-	private SocketHandler write_handler;
+	private PoolManager pool_manager;
+	private ChannelBucket channelbucket;
+	private InetSocketAddress socket_addr;
 	
-	public ChannelBucketManager(Protocol protocol, ResponseHandler request_callbacks, ITQueue queue) {
-		buckets = Collections.synchronizedList(new ArrayList<>());
-		this.protocol = protocol;
-		if (protocol == null) {
-			throw new NullPointerException("\"protocol\" can't to be null");
+	public Node(PoolManager pool_manager, InetSocketAddress socket_addr, AsynchronousSocketChannel channel) {
+		this.pool_manager = pool_manager;
+		if (pool_manager == null) {
+			throw new NullPointerException("\"pool_manager\" can't to be null");
+		}
+		this.socket_addr = socket_addr;
+		if (socket_addr == null) {
+			throw new NullPointerException("\"socket_addr\" can't to be null");
+		}
+		if (channel == null) {
+			throw new NullPointerException("\"channel\" can't to be null");
 		}
 		
-		this.request_callbacks = request_callbacks;
-		if (request_callbacks == null) {
-			throw new NullPointerException("\"request_callbacks\" can't to be null");
-		}
-		
-		this.queue = queue;
-		if (queue == null) {
-			throw new NullPointerException("\"queue\" can't to be null");
-		}
-		
-		read_handler = protocol.getHandlerReader();
-		write_handler = protocol.getHandlerReader();
+		channelbucket = new ChannelBucket(this, channel);
 	}
 	
-	ChannelBucket create(InetSocketAddress distant_addr, AsynchronousSocketChannel channel) {
-		ChannelBucket bucket = new ChannelBucket(distant_addr, channel);
-		buckets.add(bucket);
-		return bucket;
+	public InetSocketAddress getSocketAddr() {
+		return socket_addr;
 	}
 	
-	public class ChannelBucket {
-		
+	public boolean isOpenSocket() {
+		return channelbucket.channel.isOpen();
+	}
+	
+	// TODO regular check channelbucket state, and if disconnected remove + try to reconnect
+	
+	public String toString() {
+		return getSocketAddr().getHostName() + ":" + getSocketAddr().getPort() + " [" + channelbucket.getProviderClass().getSimpleName() + "]";
+	}
+	
+	ChannelBucket getChannelbucket() {
+		return channelbucket;
+	}
+	
+	class ChannelBucket {
+		private Node referer;
 		private ByteBuffer buffer;
-		private InetSocketAddress distant_addr;// TODO rename var
 		private AsynchronousSocketChannel channel;
 		
-		private ChannelBucket(InetSocketAddress distant_addr, AsynchronousSocketChannel channel) {
+		private ChannelBucket(Node referer, AsynchronousSocketChannel channel) {
 			this.buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
-			this.distant_addr = distant_addr;
 			this.channel = channel;
+			this.referer = referer;
+		}
+		
+		public Class<? extends AsynchronousChannelProvider> getProviderClass() {
+			return channel.provider().getClass();
 		}
 		
 		public boolean isOpen() {
@@ -96,21 +101,21 @@ public class ChannelBucketManager {
 		void asyncRead() {
 			buffer.clear();
 			try {
-				channel.read(buffer, this, read_handler);
+				channel.read(buffer, this, pool_manager.getProtocol().getHandlerReader());
 			} catch (ReadPendingException e) {
 				log.trace("No two reads at the same time for " + toString());
 			}
 		}
 		
 		void asyncWrite() {
-			channel.write(buffer, this, write_handler);
+			channel.write(buffer, this, pool_manager.getProtocol().getHandlerWriter());
 		}
 		
 		/**
 		 * @return distant IP address
 		 */
 		public String toString() {
-			return distant_addr.getHostString();
+			return socket_addr.getHostString();
 		}
 		
 		public void close() {
@@ -123,8 +128,7 @@ public class ChannelBucketManager {
 					log.warn("Can't close properly channel " + toString(), e);
 				}
 			}
-			
-			buckets.remove(this);
+			pool_manager.remove(referer);
 		}
 		
 		public void dump(String text) {
@@ -136,7 +140,7 @@ public class ChannelBucketManager {
 		
 		private byte[] decrypt() throws GeneralSecurityException {
 			buffer.flip();
-			protocol.decrypt(buffer);
+			pool_manager.getProtocol().decrypt(buffer);
 			buffer.flip();
 			byte[] content = new byte[buffer.remaining()];
 			buffer.get(content, 0, content.length);
@@ -148,7 +152,7 @@ public class ChannelBucketManager {
 			buffer.clear();
 			buffer.put(data);
 			buffer.flip();
-			protocol.encrypt(buffer);
+			pool_manager.getProtocol().encrypt(buffer);
 		}
 		
 		/**
@@ -156,8 +160,8 @@ public class ChannelBucketManager {
 		 */
 		public void doProcessReceviedDatas() throws Exception {
 			final byte[] datas = decrypt();
-			queue.addToQueue(() -> {
-				request_callbacks.onReceviedNewBlocks(protocol.decompressBlocks(datas), distant_addr.getAddress(), this);
+			pool_manager.getQueue().addToQueue(() -> {
+				pool_manager.getRequestHandler().onReceviedNewBlocks(pool_manager.getProtocol().decompressBlocks(datas), socket_addr.getAddress(), referer);
 			}, wtcl -> {
 				close();
 			});
@@ -170,7 +174,7 @@ public class ChannelBucketManager {
 		public void sendDatas(ArrayList<RequestBlock> to_send) throws IOException {
 			checkIfOpen();
 			
-			queue.addToQueue(() -> {
+			pool_manager.getQueue().addToQueue(() -> {
 				if (log.isTraceEnabled()) {
 					AtomicInteger all_size = new AtomicInteger(0);
 					to_send.forEach(block -> {
@@ -183,13 +187,39 @@ public class ChannelBucketManager {
 					}
 				}
 				
-				byte[] datas = protocol.compressBlocks(to_send);
+				byte[] datas = pool_manager.getProtocol().compressBlocks(to_send);
 				encrypt(datas);
 				asyncWrite();
 			}, e -> {
 				log.error("Can't send datas " + toString(), e);
 			});
 		}
+	}
+	
+	/**
+	 * Via SocketAddr
+	 */
+	public int hashCode() {
+		return this.getSocketAddr().hashCode();
+	}
+	
+	/**
+	 * Via SocketAddr
+	 */
+	public boolean equals(Object obj) {
+		if (this == obj) {
+			return true;
+		}
+		if (obj == null) {
+			return false;
+		}
+		if (getClass() != obj.getClass()) {
+			return false;
+		}
+		
+		Node other = (Node) obj;
+		
+		return this.getSocketAddr().equals(other.getSocketAddr());
 	}
 	
 }

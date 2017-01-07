@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 24 nov. 2016
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.dialect.dialogs;
 
 import java.util.ArrayList;
 

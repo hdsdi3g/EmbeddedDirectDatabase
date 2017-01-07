@@ -23,9 +23,6 @@ import java.util.ArrayList;
 import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.ClientUnit;
-import hd3gtv.embddb.dialect.ClientSayToServer;
-import hd3gtv.embddb.dialect.Dialog;
-import hd3gtv.embddb.dialect.ServerSayToClient;
 import hd3gtv.embddb.dialect.Version;
 import hd3gtv.embddb.socket.Protocol;
 import hd3gtv.embddb.socket.RequestBlock;

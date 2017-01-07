@@ -20,10 +20,11 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.CompletionHandler;
+import java.util.function.Consumer;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.socket.ChannelBucketManager.ChannelBucket;
+import hd3gtv.embddb.PoolManager;
 
 public class SocketClient {
 	
@@ -31,41 +32,38 @@ public class SocketClient {
 	
 	private InetSocketAddress server;
 	private AsynchronousSocketChannel channel;
-	private ChannelBucket bucket;
 	private SocketConnect handler_connect;
+	private Consumer<Node> callback_on_connection;
 	
-	public SocketClient(InetSocketAddress server, ChannelBucketManager bucket_manager) throws IOException {
+	public SocketClient(PoolManager pool_manager, InetSocketAddress server, Consumer<Node> callback_on_connection) throws IOException {
+		if (pool_manager == null) {
+			throw new NullPointerException("\"pool_manager\" can't to be null");
+		}
 		this.server = server;
 		if (server == null) {
 			throw new NullPointerException("\"server\" can't to be null");
 		}
-		if (bucket_manager == null) {
-			throw new NullPointerException("\"bucket_manager\" can't to be null");
+		this.callback_on_connection = callback_on_connection;
+		if (callback_on_connection == null) {
+			throw new NullPointerException("\"callback_on_connection\" can't to be null");
 		}
+		
 		handler_connect = new SocketConnect();
 		
 		channel = AsynchronousSocketChannel.open();
-		channel.connect(server, bucket_manager, handler_connect);
+		
+		channel.connect(server, new Node(pool_manager, server, channel), handler_connect);
 	}
 	
-	private class SocketConnect implements CompletionHandler<Void, ChannelBucketManager> {
+	private class SocketConnect implements CompletionHandler<Void, Node> {
 		
-		public void completed(Void result, ChannelBucketManager bucket_manager) {
-			InetSocketAddress addr;
-			try {
-				addr = (InetSocketAddress) channel.getRemoteAddress();
-			} catch (IOException e) {
-				failed(e, bucket_manager);
-				return;
-			}
-			
-			bucket = bucket_manager.create(addr, channel);
-			log.info("Connected to " + bucket);
-			
-			bucket.asyncRead();
+		public void completed(Void result, Node new_node) {
+			log.info("Connected to " + new_node);
+			new_node.getChannelbucket().asyncRead();
+			callback_on_connection.accept(new_node);
 		}
 		
-		public void failed(Throwable e, ChannelBucketManager bucket_manager) {
+		public void failed(Throwable e, Node new_node) {
 			log.error("Can't create TCP Client to " + server, e);
 		}
 		

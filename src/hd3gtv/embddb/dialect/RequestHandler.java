@@ -18,27 +18,45 @@ package hd3gtv.embddb.dialect;
 
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.PoolManager;
-import hd3gtv.embddb.socket.ChannelBucketManager.ChannelBucket;
+import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
 
-public class ResponseHandler {
+public class RequestHandler {
 	
-	private static final Logger log = Logger.getLogger(ResponseHandler.class);
+	private static final Logger log = Logger.getLogger(RequestHandler.class);
 	private PoolManager pool_manager;
+	private HashMap<String, Request> requests;
 	
-	public ResponseHandler(PoolManager pool_manager) {
+	public RequestHandler(PoolManager pool_manager) {
 		this.pool_manager = pool_manager;
 		if (pool_manager == null) {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
+		requests = new HashMap<>();
+		// TODO addRequests() add requests
 	}
 	
-	public void onReceviedNewBlocks(ArrayList<RequestBlock> blocks, InetAddress source, ChannelBucket bucket) throws WantToCloseLink {
+	private void addRequests(Request r) {
+		String name = r.getHandleName();
+		if (name == null) {
+			throw new NullPointerException("Request getHandleName can't to be null");
+		}
+		if (name.isEmpty()) {
+			throw new NullPointerException("Request getHandleName can't to be empty");
+		}
+		if (requests.containsKey(name)) {
+			throw new IndexOutOfBoundsException("Another Request was loaded with name " + name + " (" + r.getClass() + " and " + requests.get(name).getClass() + ")");
+		}
+		requests.put(name, r);
+	}
+	
+	public void onReceviedNewBlocks(ArrayList<RequestBlock> blocks, InetAddress source, Node node) throws WantToCloseLink {
 		if (log.isTraceEnabled()) {
 			AtomicInteger all_size = new AtomicInteger(0);
 			blocks.forEach(block -> {

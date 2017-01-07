@@ -27,9 +27,6 @@ import com.google.gson.JsonParser;
 
 import hd3gtv.embddb.ClientUnit;
 import hd3gtv.embddb.PoolManager;
-import hd3gtv.embddb.dialect.ClientSayToServer;
-import hd3gtv.embddb.dialect.Dialog;
-import hd3gtv.embddb.dialect.ServerSayToClient;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 import hd3gtv.internaltaskqueue.ParametedWithResultProcedure;
@@ -109,7 +106,7 @@ public class ClientList implements Dialog<ArrayList<InetSocketAddress>, ArrayLis
 			public ArrayList<RequestBlock> getBlocksToSendToClient() {
 				ArrayList<InetSocketAddress> addr = deserializing(send.get(0).getDatasAsString());
 				
-				String response = serializing(pool_manager.getAllCurrentConnected().stream().filter(predicate -> {
+				String response = serializing(pool_manager.getAllCurrentNodes().stream().filter(predicate -> {
 					return addr.contains(predicate) == false;
 				}));
 				

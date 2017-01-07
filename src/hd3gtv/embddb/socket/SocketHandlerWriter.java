@@ -18,7 +18,7 @@ package hd3gtv.embddb.socket;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.socket.ChannelBucketManager.ChannelBucket;
+import hd3gtv.embddb.socket.Node.ChannelBucket;
 
 class SocketHandlerWriter implements SocketHandler {
 	

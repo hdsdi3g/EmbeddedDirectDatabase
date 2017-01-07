@@ -11,29 +11,30 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 25 nov. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 7 janv. 2017
  * 
 */
-package hd3gtv.embddb.dialect.dialogs;
+package hd3gtv.embddb.dialect;
 
 import java.util.ArrayList;
 
+import hd3gtv.embddb.PoolManager;
+import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
-import hd3gtv.embddb.tools.ArrayWrapper;
 
-public class ErrorResponse implements ServerSayToClient {
+public abstract class Request {
 	
-	public String message;
+	protected PoolManager pool_manager;
 	
-	public ErrorResponse(String message) {
-		this.message = message;
-		if (message == null) {
-			throw new NullPointerException("\"message\" can't to be null");
+	public Request(PoolManager pool_manager) {
+		this.pool_manager = pool_manager;
+		if (pool_manager == null) {
+			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
 	}
 	
-	public ArrayList<RequestBlock> getBlocksToSendToClient() {
-		return ArrayWrapper.asArrayList(new RequestBlock("error", message));
-	}
+	public abstract String getHandleName();
+	
+	public abstract void onRequest(ArrayList<RequestBlock> blocks, Node node);
 	
 }

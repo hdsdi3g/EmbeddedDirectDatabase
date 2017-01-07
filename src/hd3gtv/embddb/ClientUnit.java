@@ -25,16 +25,17 @@ import java.util.function.Consumer;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.PoolManager.ConnectHandler;
-import hd3gtv.embddb.dialect.ClientSayToServer;
-import hd3gtv.embddb.dialect.Dialog;
 import hd3gtv.embddb.dialect.dialogs.ClientList;
+import hd3gtv.embddb.dialect.dialogs.ClientSayToServer;
+import hd3gtv.embddb.dialect.dialogs.Dialog;
 import hd3gtv.embddb.dialect.dialogs.DisconnectNode;
 import hd3gtv.embddb.dialect.dialogs.HandCheck;
 import hd3gtv.embddb.dialect.dialogs.PingPongTime;
-import hd3gtv.embddb.network.EDDBClient;
 import hd3gtv.internaltaskqueue.ParametedProcedure;
 
+/**
+ * @deprecated
+ */
 public class ClientUnit {
 	
 	private static Logger log = Logger.getLogger(ClientUnit.class);

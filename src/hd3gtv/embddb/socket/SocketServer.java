@@ -24,29 +24,25 @@ import java.nio.channels.AsynchronousSocketChannel;
 import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.PoolManager;
-import hd3gtv.embddb.socket.ChannelBucketManager.ChannelBucket;
 import hd3gtv.tools.StoppableThread;
 
 public class SocketServer extends StoppableThread {
 	
 	private static final Logger log = Logger.getLogger(SocketServer.class);
 	
-	private ChannelBucketManager bucket_manager;
 	private InetSocketAddress listen;
 	private AsynchronousServerSocketChannel server;
+	private PoolManager pool_manager;
 	
-	public SocketServer(PoolManager poolmanager, ChannelBucketManager bucket_manager) throws IOException {
+	public SocketServer(PoolManager pool_manager) throws IOException {
 		super("SocketServer", log);
 		
-		if (poolmanager == null) {
-			throw new NullPointerException("\"poolmanager\" can't to be null");
-		}
-		this.bucket_manager = bucket_manager;
-		if (bucket_manager == null) {
-			throw new NullPointerException("\"bucket_manager\" can't to be null");
+		this.pool_manager = pool_manager;
+		if (pool_manager == null) {
+			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
 		
-		listen = poolmanager.getServerListenSocketAddress();
+		listen = pool_manager.getServerListenSocketAddress();
 		server = null;
 	}
 	
@@ -78,10 +74,10 @@ public class SocketServer extends StoppableThread {
 		while (isWantToRun()) {
 			try {
 				AsynchronousSocketChannel channel = server.accept().get();
-				
-				ChannelBucket bucket = bucket_manager.create((InetSocketAddress) channel.getRemoteAddress(), channel);
-				log.info("Client connect " + bucket);
-				bucket.asyncRead();
+				Node node = new Node(pool_manager, (InetSocketAddress) channel.getRemoteAddress(), channel);
+				log.info("Client connect " + node);
+				node.getChannelbucket().asyncRead();
+				pool_manager.add(node);
 				
 				/*Thread t = new Thread(() -> {
 					try {
