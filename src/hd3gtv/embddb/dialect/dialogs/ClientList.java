@@ -19,11 +19,6 @@ package hd3gtv.embddb.dialect.dialogs;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.stream.Stream;
-
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 import hd3gtv.embddb.ClientUnit;
 import hd3gtv.embddb.PoolManager;
@@ -64,39 +59,6 @@ public class ClientList implements Dialog<ArrayList<InetSocketAddress>, ArrayLis
 			return ArrayWrapper.asArrayList(new RequestBlock("clientlistrequest", serializing(current_connected.stream())));
 		}
 		
-	}
-	
-	/**
-	 * @return JsonArray String
-	 */
-	public static String serializing(Stream<InetSocketAddress> list) {
-		return list.map(a -> {
-			JsonObject jo = new JsonObject();
-			jo.addProperty("ip", a.getAddress().getHostAddress());
-			jo.addProperty("port", a.getPort());
-			return jo;
-		}).collect(() -> {
-			return new JsonArray();
-		}, (jsonarray, jsonobject) -> {
-			jsonarray.add(jsonobject);
-		}, (jsonarray1, jsonarray2) -> {
-			jsonarray1.addAll(jsonarray2);
-		}).toString();
-	}
-	
-	private static JsonParser parser = new JsonParser();
-	
-	public static ArrayList<InetSocketAddress> deserializing(String json_array_list) {
-		JsonArray ja = parser.parse(json_array_list).getAsJsonArray();
-		
-		ArrayList<InetSocketAddress> client_list = new ArrayList<>(ja.size() + 1);
-		
-		ja.forEach(je -> {
-			JsonObject jo = je.getAsJsonObject();
-			client_list.add(new InetSocketAddress(jo.get("ip").getAsString(), jo.get("port").getAsInt()));
-		});
-		
-		return client_list;
 	}
 	
 	public ServerSayToClient getServerSentenceToSendToClient(InetAddress client, ArrayList<RequestBlock> send) {

@@ -22,19 +22,28 @@ import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
 
-public abstract class Request {
+/**
+ * @param T Send T to dest_node
+ */
+public abstract class Request<T> {
 	
 	protected PoolManager pool_manager;
+	protected RequestHandler request_handler;
 	
 	public Request(PoolManager pool_manager) {
 		this.pool_manager = pool_manager;
 		if (pool_manager == null) {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
+		request_handler = pool_manager.getRequestHandler();
 	}
 	
 	public abstract String getHandleName();
 	
-	public abstract void onRequest(ArrayList<RequestBlock> blocks, Node node);
+	public abstract void onRequest(ArrayList<RequestBlock> blocks, Node source_node);
+	
+	public abstract ArrayList<RequestBlock> createRequest(T options, Node dest_node);// TODO remplace createRequest by sendRequest ?
+	
+	// TODO check if createRequest[0].name <=> getHandleName() before send
 	
 }

@@ -24,11 +24,18 @@ import java.nio.channels.ReadPendingException;
 import java.nio.channels.spi.AsynchronousChannelProvider;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.PoolManager;
+import hd3gtv.embddb.dialect.ErrorReturn;
+import hd3gtv.embddb.tools.ArrayWrapper;
 import hd3gtv.embddb.tools.Hexview;
 
 public class Node {
@@ -38,6 +45,9 @@ public class Node {
 	private PoolManager pool_manager;
 	private ChannelBucket channelbucket;
 	private InetSocketAddress socket_addr;
+	
+	private UUID uuid_ref;
+	private long server_delta_time;
 	
 	public Node(PoolManager pool_manager, InetSocketAddress socket_addr, AsynchronousSocketChannel channel) {
 		this.pool_manager = pool_manager;
@@ -53,6 +63,7 @@ public class Node {
 		}
 		
 		channelbucket = new ChannelBucket(this, channel);
+		server_delta_time = 0;
 	}
 	
 	public InetSocketAddress getSocketAddr() {
@@ -63,17 +74,17 @@ public class Node {
 		return channelbucket.channel.isOpen();
 	}
 	
-	// TODO regular check channelbucket state, and if disconnected remove + try to reconnect
+	// TODO regular check channelbucket state, and if disconnected remove
 	
 	public String toString() {
 		return getSocketAddr().getHostName() + ":" + getSocketAddr().getPort() + " [" + channelbucket.getProviderClass().getSimpleName() + "]";
 	}
 	
-	ChannelBucket getChannelbucket() {
+	public ChannelBucket getChannelbucket() {
 		return channelbucket;
 	}
 	
-	class ChannelBucket {
+	public class ChannelBucket {
 		private Node referer;
 		private ByteBuffer buffer;
 		private AsynchronousSocketChannel channel;
@@ -220,6 +231,96 @@ public class Node {
 		Node other = (Node) obj;
 		
 		return this.getSocketAddr().equals(other.getSocketAddr());
+	}
+	
+	public void onErrorReturnFromNode(ErrorReturn error) {
+		if (error.isDisconnectme()) {
+			log.warn("Node (" + error.getNode() + ") say: \"" + error.getMessage() + "\"" + " by " + error.getCaller() + " at " + new Date(error.getDate()) + " and want to disconnect");
+			channelbucket.close();
+		} else {
+			log.info("Node (" + error.getNode() + ") say: \"" + error.getMessage() + "\"" + " by " + error.getCaller() + " at " + new Date(error.getDate()));
+		}
+	}
+	
+	public void send(RequestBlock to_send) {
+		send(ArrayWrapper.asArrayList(to_send));
+	}
+	
+	public void send(String name, String datas) {
+		send(new RequestBlock(name, datas));
+	}
+	
+	public void send(String name, byte[] datas) {
+		send(new RequestBlock(name, datas));
+	}
+	
+	// TODO create a send & close after send ??
+	public void send(ArrayList<RequestBlock> to_send) {
+		try {
+			channelbucket.sendDatas(to_send);
+		} catch (IOException e) {
+			List<String> block_names = to_send.stream().map(b -> {
+				return b.getName();
+			}).collect(Collectors.toList());
+			
+			log.error("Can't send datas to " + toString() + " > " + block_names);
+			channelbucket.close();
+		}
+	}
+	
+	public void setUUIDRef(UUID uuid) throws IOException {
+		if (uuid == null) {
+			throw new NullPointerException("\"uuid_ref\" can't to be null");
+		}
+		if (uuid.equals(pool_manager.getUUIDRef())) {
+			throw new IOException("Invalid UUID for " + toString() + ", it's the same as local manager ! (" + uuid_ref.toString() + ")");
+		}
+		if (uuid_ref == null) {
+			uuid_ref = uuid;
+			log.debug("Set UUID for " + toString() + ", " + uuid);
+		}
+		check(uuid);
+	}
+	
+	public void check(UUID uuid) throws IOException {
+		if (this.uuid_ref == null) {
+			return;
+		}
+		if (uuid.equals(uuid_ref) == false) {
+			throw new IOException("Invalid UUID for " + toString() + ", you should disconnect now (this = " + uuid_ref.toString() + " and dest = " + uuid.toString() + ")");
+		}
+		if (uuid.equals(pool_manager.getUUIDRef())) {
+			throw new IOException("Invalid UUID for " + toString() + ", it's the same as local manager ! (" + uuid_ref.toString() + ")");
+		}
+	}
+	
+	public static final long MAX_TOLERANCE_DELTA_TIME_WITH_SERVER = TimeUnit.SECONDS.toMillis(30);
+	
+	/**
+	 * Network jitter filter
+	 */
+	public static final long MIN_TOLERANCE_DELTA_TIME_WILL_UPDATE_CHANGE = TimeUnit.MILLISECONDS.toMillis(200);
+	
+	public boolean setDistantDate(long server_date) {
+		long new_delay = server_date - System.currentTimeMillis();
+		
+		if (Math.abs(server_delta_time - new_delay) < MIN_TOLERANCE_DELTA_TIME_WILL_UPDATE_CHANGE) {
+			return true;
+		}
+		
+		if (log.isTraceEnabled()) {
+			log.trace("Node " + toString() + " delay: " + server_delta_time + " ms before, now is " + new_delay + " ms");
+		}
+		
+		server_delta_time = new_delay;
+		
+		if ((server_delta_time != new_delay) && (Math.abs(server_delta_time) > MAX_TOLERANCE_DELTA_TIME_WITH_SERVER)) {
+			log.warn(
+					"Big delay with server " + toString() + ": " + server_delta_time + " ms. Please check the NTP setup with this host and the server ! In the meantime, this node will be disconned.");
+			channelbucket.close();
+			return false;
+		}
+		return true;
 	}
 	
 }

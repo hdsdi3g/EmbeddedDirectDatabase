@@ -22,10 +22,9 @@ import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -35,27 +34,28 @@ import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
 import hd3gtv.embddb.dialect.RequestHandler;
-import hd3gtv.embddb.dialect.dialogs.ClientList;
-import hd3gtv.embddb.dialect.dialogs.Dialog;
-import hd3gtv.embddb.dialect.dialogs.DisconnectNode;
-import hd3gtv.embddb.dialect.dialogs.HandCheck;
-import hd3gtv.embddb.dialect.dialogs.PingPongTime;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.Protocol;
-import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.socket.SocketClient;
 import hd3gtv.embddb.socket.SocketServer;
 import hd3gtv.embddb.tools.InteractiveConsoleMode;
 import hd3gtv.internaltaskqueue.ITQueue;
+import hd3gtv.mydmam.MyDMAM;
 import hd3gtv.tools.AddressMaster;
+import hd3gtv.tools.GsonIgnoreStrategy;
 
 public class PoolManager {
 	
 	private static Logger log = Logger.getLogger(PoolManager.class);
 	
-	private ArrayList<Dialog<?, ?>> dialogs;
-	private HashMap<Class<?>, Dialog<?, ?>> dialogs_by_class;
+	private final Gson simple_gson;
+	
+	/*private ArrayList<Dialog<?, ?>> dialogs;
+	private HashMap<Class<?>, Dialog<?, ?>> dialogs_by_class;*/
 	
 	private SocketServer local_server;
 	private RequestHandler request_handler;
@@ -74,7 +74,24 @@ public class PoolManager {
 	
 	private boolean enable_loop_clients;
 	
+	private final UUID uuid_ref;
+	
 	public PoolManager(ITQueue queue, String master_password_key) throws GeneralSecurityException, IOException {
+		GsonBuilder builder = new GsonBuilder();
+		builder.serializeNulls();
+		
+		GsonIgnoreStrategy ignore_strategy = new GsonIgnoreStrategy();
+		builder.addDeserializationExclusionStrategy(ignore_strategy);
+		builder.addSerializationExclusionStrategy(ignore_strategy);
+		
+		/**
+		 * Outside of this package serializers
+		 */
+		MyDMAM.registerBaseSerializers(builder);
+		simple_gson = builder.create();
+		
+		uuid_ref = UUID.randomUUID();
+		
 		enable_loop_clients = false;
 		
 		addr_master = new AddressMaster();
@@ -88,8 +105,8 @@ public class PoolManager {
 		
 		protocol = new Protocol(master_password_key);
 		
-		dialogs = new ArrayList<>();
-		dialogs.add(new HandCheck(protocol));// TODO better implementation...
+		/*dialogs = new ArrayList<>();
+		dialogs.add(new HandCheck(protocol));
 		dialogs.add(new PingPongTime());
 		dialogs.add(new ClientList(this));
 		dialogs.add(new DisconnectNode(this));
@@ -97,7 +114,7 @@ public class PoolManager {
 		dialogs_by_class = new HashMap<>(dialogs.size());
 		dialogs.forEach(d -> {
 			dialogs_by_class.put(d.getClass(), d);
-		});
+		});*/
 		
 		nodes = Collections.synchronizedList(new ArrayList<>());
 		
@@ -110,12 +127,20 @@ public class PoolManager {
 		request_handler = new RequestHandler(this);
 	}
 	
+	public UUID getUUIDRef() {
+		return uuid_ref;
+	}
+	
 	public Protocol getProtocol() {
 		return protocol;
 	}
 	
 	public AddressMaster getAddressMaster() {
 		return addr_master;
+	}
+	
+	public Gson getSimpleGson() {
+		return simple_gson;
 	}
 	
 	public void startServer(InetSocketAddress listen) throws IOException {
@@ -378,22 +403,6 @@ public class PoolManager {
 		return queue;
 	}
 	
-	Dialog<?, ?> getByClass(Class<? extends Dialog<?, ?>> dialog_class) {
-		return dialogs_by_class.get(dialog_class);
-	}
-	
-	Dialog<?, ?> getClientToServerRequestFirstValid(ArrayList<RequestBlock> blocks) throws NoSuchElementException {
-		return dialogs.stream().filter(p -> {
-			return p.checkIfClientRequestIsForThisServer(blocks);
-		}).findFirst().get();
-	}
-	
-	Dialog<?, ?> getServerToClientResponseFirstValid(ArrayList<RequestBlock> blocks) throws NoSuchElementException {
-		return dialogs.stream().filter(p -> {
-			return p.checkIfServerResponseIsForThisClient(blocks);
-		}).findFirst().get();
-	}
-	
 	public InteractiveConsoleMode getConsole() {
 		return console;
 	}
@@ -461,5 +470,38 @@ public class PoolManager {
 			closeAll();
 		}
 	}
+	
+	/**
+	 * @return JsonArray String
+	 */
+	/*public static String serializing(Stream<InetSocketAddress> list) {
+		return list.map(a -> {
+			JsonObject jo = new JsonObject();
+			jo.addProperty("ip", a.getAddress().getHostAddress());
+			jo.addProperty("port", a.getPort());
+			return jo;
+		}).collect(() -> {
+			return new JsonArray();
+		}, (jsonarray, jsonobject) -> {
+			jsonarray.add(jsonobject);
+		}, (jsonarray1, jsonarray2) -> {
+			jsonarray1.addAll(jsonarray2);
+		}).toString();
+	}
+	
+	private static JsonParser parser = new JsonParser();
+	
+	public static ArrayList<InetSocketAddress> deserializing(String json_array_list) {
+		JsonArray ja = parser.parse(json_array_list).getAsJsonArray();
+		
+		ArrayList<InetSocketAddress> client_list = new ArrayList<>(ja.size() + 1);
+		
+		ja.forEach(je -> {
+			JsonObject jo = je.getAsJsonObject();
+			client_list.add(new InetSocketAddress(jo.get("ip").getAsString(), jo.get("port").getAsInt()));
+		});
+		
+		return client_list;
+	}*/
 	
 }
