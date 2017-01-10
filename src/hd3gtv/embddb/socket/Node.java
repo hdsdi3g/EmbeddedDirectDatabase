@@ -18,6 +18,7 @@ package hd3gtv.embddb.socket;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.ReadPendingException;
@@ -32,6 +33,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
+
+import com.google.gson.JsonObject;
 
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.dialect.ErrorReturn;
@@ -139,7 +142,7 @@ public class Node {
 					log.warn("Can't close properly channel " + toString(), e);
 				}
 			}
-			pool_manager.remove(referer);
+			pool_manager.getNodeList().remove(referer);
 		}
 		
 		public void dump(String text) {
@@ -276,7 +279,10 @@ public class Node {
 			throw new IOException("Invalid UUID for " + toString() + ", it's the same as local manager ! (" + uuid_ref.toString() + ")");
 		}
 		if (uuid_ref == null) {
-			uuid_ref = uuid;
+			synchronized (uuid_ref) {
+				uuid_ref = uuid;
+				pool_manager.getNodeList().updateUUID(this);
+			}
 			log.debug("Set UUID for " + toString() + ", " + uuid);
 		}
 		check(uuid);
@@ -292,6 +298,66 @@ public class Node {
 		if (uuid.equals(pool_manager.getUUIDRef())) {
 			throw new IOException("Invalid UUID for " + toString() + ", it's the same as local manager ! (" + uuid_ref.toString() + ")");
 		}
+	}
+	
+	public boolean isUUIDSet() {
+		return uuid_ref != null;
+	}
+	
+	public boolean equalsThisUUID(UUID uuid) {
+		if (uuid == null) {
+			return false;
+		}
+		if (uuid_ref == null) {
+			return false;
+		}
+		return uuid.equals(uuid_ref);
+	}
+	
+	public boolean equalsThisUUID(Node node) {
+		if (node == null) {
+			return false;
+		}
+		if (uuid_ref == null) {
+			return false;
+		}
+		return node.uuid_ref.equals(uuid_ref);
+	}
+	
+	/**
+	 * Use equalsThisUUID, isUUIDSet or check for compare.
+	 * @return Maybe null.
+	 */
+	public UUID getUUID() {
+		return uuid_ref;
+	}
+	
+	/**
+	 * @return null if not uuid or closed
+	 */
+	public JsonObject getAutodiscoverIDCard() {
+		if (uuid_ref == null | isOpenSocket() == false) {
+			return null;
+		}
+		JsonObject jo = new JsonObject();
+		jo.addProperty("uuid", uuid_ref.toString());
+		jo.addProperty("addr", this.socket_addr.getAddress().getHostAddress());
+		jo.addProperty("port", this.socket_addr.getPort()); // TODO port is local or distant ?!
+		return jo;
+	}
+	
+	public static UUID getUUIDFromAutodiscoverIDCard(JsonObject item) throws NullPointerException {
+		if (item.has("uuid")) {
+			return UUID.fromString(item.get("uuid").getAsString());
+		}
+		throw new NullPointerException("Missing uuid item in json " + item.toString());
+	}
+	
+	public static InetSocketAddress getAddressFromAutodiscoverIDCard(JsonObject item) throws NullPointerException, UnknownHostException {
+		if (item.has("addr") && item.has("port")) {
+			return InetSocketAddress.createUnresolved(item.get("addr").getAsString(), item.get("port").getAsInt());
+		}
+		throw new NullPointerException("Missing addr/port item in json " + item.toString());
 	}
 	
 	public static final long MAX_TOLERANCE_DELTA_TIME_WITH_SERVER = TimeUnit.SECONDS.toMillis(30);
@@ -321,6 +387,24 @@ public class Node {
 			return false;
 		}
 		return true;
+	}
+	
+	public String getActualStatus() {// TODO call this in console
+		StringBuilder sb = new StringBuilder();
+		sb.append(channelbucket.getProviderClass().getSimpleName());
+		sb.append(" to ");
+		sb.append(socket_addr.getHostString());
+		sb.append(":");
+		sb.append(socket_addr.getPort());
+		sb.append(", delta time ");
+		sb.append(server_delta_time);
+		sb.append(" ms ");
+		if (uuid_ref != null) {
+			sb.append(uuid_ref.toString());
+		} else {
+			sb.append("no UUID");
+		}
+		return sb.toString();
 	}
 	
 }

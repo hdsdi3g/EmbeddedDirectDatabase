@@ -44,8 +44,7 @@ public class RequestHandler {
 		addRequest(new HelloRequest(pool_manager));
 		addRequest(new WelcomeRequest(pool_manager));
 		addRequest(new DisconnectRequest(pool_manager));
-		addRequest(new NodeListRpRequest(pool_manager));
-		addRequest(new NodeListRqRequest(pool_manager));
+		addRequest(new NodeListRequest(pool_manager));
 		addRequest(new PingRequest(pool_manager));
 		addRequest(new PongRequest(pool_manager));
 	}
@@ -98,10 +97,14 @@ public class RequestHandler {
 				log.trace("Get from " + source + " " + all_size.get() + " bytes of datas on " + blocks.size() + " blocks.");
 			}
 		}
+		String name = blocks.get(0).getName();
 		
-		// TODO Auto-generated method stub
-		// pool_manager.getClientToServerRequestFirstValid(blocks);
-		// .getServerSentenceToSendToClient(source, blocks).getBlocksToSendToClient();
+		if (requests.containsKey(name) == false) {
+			log.error("Can't handle block name " + name + " from " + node);
+			return;
+		}
+		
+		requests.get(name).onRequest(blocks, node);
 	}
 	
 }

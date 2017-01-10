@@ -77,7 +77,7 @@ public class SocketServer extends StoppableThread {
 				Node node = new Node(pool_manager, (InetSocketAddress) channel.getRemoteAddress(), channel);
 				log.info("Client connect " + node);
 				node.getChannelbucket().asyncRead();
-				pool_manager.add(node);
+				pool_manager.getNodeList().add(node);
 				
 				/*Thread t = new Thread(() -> {
 					try {

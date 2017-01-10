@@ -20,17 +20,12 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
@@ -60,9 +55,8 @@ public class PoolManager {
 	private SocketServer local_server;
 	private RequestHandler request_handler;
 	
-	private List<Node> nodes;
 	private Protocol protocol;
-	
+	private NodeList node_list;
 	private ITQueue queue;
 	// private ActivityScheduler<ClientUnit> scheduler;
 	private final ScheduledExecutorService scheduled_autodiscover;
@@ -71,8 +65,6 @@ public class PoolManager {
 	
 	private InteractiveConsoleMode console;
 	private AddressMaster addr_master;
-	
-	private boolean enable_loop_clients;
 	
 	private final UUID uuid_ref;
 	
@@ -90,18 +82,16 @@ public class PoolManager {
 		MyDMAM.registerBaseSerializers(builder);
 		simple_gson = builder.create();
 		
-		uuid_ref = UUID.randomUUID();
-		
-		enable_loop_clients = false;
-		
-		addr_master = new AddressMaster();
-		console = new InteractiveConsoleMode();
-		
 		this.queue = queue;
 		if (queue == null) {
 			throw new NullPointerException("\"queue\" can't to be null");
 		}
 		queue.setConsole(console);
+		node_list = new NodeList(queue);
+		
+		uuid_ref = UUID.randomUUID();
+		addr_master = new AddressMaster();
+		console = new InteractiveConsoleMode();
 		
 		protocol = new Protocol(master_password_key);
 		
@@ -115,8 +105,6 @@ public class PoolManager {
 		dialogs.forEach(d -> {
 			dialogs_by_class.put(d.getClass(), d);
 		});*/
-		
-		nodes = Collections.synchronizedList(new ArrayList<>());
 		
 		// scheduler = new ActivityScheduler<>();//TODO set
 		// scheduler.setConsole(console);
@@ -180,7 +168,7 @@ public class PoolManager {
 		if (regular_autodiscover.isCancelled() | regular_autodiscover.isDone()) {
 			log.info("Start regular autodiscover");
 			regular_autodiscover = scheduled_autodiscover.scheduleAtFixedRate(() -> {
-				autoDiscover();
+				// TODO autoDiscover();
 			}, 1000, 60, TimeUnit.SECONDS);
 		}
 	}
@@ -212,35 +200,15 @@ public class PoolManager {
 	}
 	
 	/**
-	 * For enable the creation of client to the local server.
-	 * Not recomended !
-	 */
-	public void setEnableLoopClients(boolean enable_loop_clients) {
-		this.enable_loop_clients = enable_loop_clients;
-		if (enable_loop_clients) {
-			if (log.isDebugEnabled()) {
-				log.debug("Set enable_loop_clients");
-			} else {
-				log.warn("Set a dangerous param: enable_loop_clients");
-			}
-		}
-	}
-	
-	/**
 	 * @return false if listen == server OR listen all host address & server == me & listen port == server.port
 	 */
 	public boolean isNotThisServerAddress(InetSocketAddress server) {
-		if (enable_loop_clients == true) {
-			return true;
-		}
-		
 		if (local_server != null) {
 			InetSocketAddress listen = local_server.getListen();
 			if (listen.equals(server) | (listen.getAddress().isAnyLocalAddress() & addr_master.isMe(server.getAddress()) & server.getPort() == listen.getPort())) {
 				return false;
 			}
 		}
-		
 		return true;
 	}
 	
@@ -252,47 +220,31 @@ public class PoolManager {
 			return;
 		}
 		
-		Optional<Node> o_node = nodes.stream().filter(n -> {
-			return n.getSocketAddr().equals(server);
-		}).findFirst();
+		Node node = node_list.get(server);
 		
-		if (o_node.isPresent()) {
-			callback_on_connection.accept(o_node.get());
+		if (node != null) {
+			callback_on_connection.accept(node);
 		} else {
 			new SocketClient(this, server, n -> {
-				if (add(n)) {
+				if (node_list.add(n)) {
 					callback_on_connection.accept(n);
 				} else {
-					callback_on_connection.accept(getNodeByAddress(server));
+					callback_on_connection.accept(node_list.get(server));
 				}
 			});
 		}
 	}
 	
 	/**
+	 * TODO call at boot with configuration
 	 * @param callback_on_connection Always callback it, even if already exists.
 	 */
 	public void declareNewPotentialDistantServer(InetAddress addr, Consumer<Node> callback_on_connection) throws IOException {
 		declareNewPotentialDistantServer(new InetSocketAddress(addr, getProtocol().getDefaultTCPPort()), callback_on_connection);
 	}
 	
-	/**
-	 * @return null if not exists or if socket is closed.
-	 */
-	public Node getNodeByAddress(InetSocketAddress addr) {
-		Optional<Node> o_node = nodes.stream().filter(n -> {
-			return n.getSocketAddr().equals(addr);
-		}).findFirst();
-		
-		if (o_node.isPresent()) {
-			Node n = o_node.get();
-			if (n.isOpenSocket()) {
-				return n;
-			} else {
-				nodes.remove(n);
-			}
-		}
-		return null;
+	public NodeList getNodeList() {
+		return node_list;
 	}
 	
 	/*synchronized void declareClient(ClientUnit client) {
@@ -341,62 +293,6 @@ public class PoolManager {
 	
 	public RequestHandler getRequestHandler() {
 		return request_handler;
-	}
-	
-	public ArrayList<InetSocketAddress> getAllCurrentNodes() {
-		nodes.removeIf(n -> {
-			return n.isOpenSocket() == false;
-		});
-		
-		return new ArrayList<>(nodes.stream().map(n -> {
-			return n.getSocketAddr();
-		}).collect(Collectors.toList()));
-	}
-	
-	public void remove(Node node) {// TODO set to package
-		log.info("Remove node " + node);
-		nodes.remove(node);
-	}
-	
-	public boolean add(Node node) {// TODO set to package
-		log.debug("Add node " + node);
-		if (nodes.contains(node)) {
-			if (node.isOpenSocket()) {
-				return false;
-			} else {
-				nodes.remove(node);
-			}
-		}
-		return nodes.add(node);
-	}
-	
-	/**
-	 * Search new clients to connect to it.
-	 */
-	public void autoDiscover() {
-		log.debug("Start discover for " + nodes.size() + " nodes(s)");
-		
-		/**
-		 * Direct mode -> check client list == connected to server list
-		 * -
-		 * Get all current clients
-		 */
-		// TODO
-		// ArrayList<InetSocketAddress> actual_list = new ArrayList<>(clients.stream().map(c -> {
-		// return c.getConnectedServer();
-		// }).collect(Collectors.toList()));
-		
-		// log.debug("Do the autodiscover distant mode with " + actual_list.size() + " server(s) to check");
-		
-		/**
-		 * Distant mode -> get for each client the full Connected to its server list and the client connected to it.
-		 */
-		// TODO
-		// clients.stream().forEach(client -> {
-		// client.getFromConnectedServerThisActualClientList(actual_list);
-		// });
-		
-		// TODO + search double entries in nodes
 	}
 	
 	public ITQueue getQueue() {
