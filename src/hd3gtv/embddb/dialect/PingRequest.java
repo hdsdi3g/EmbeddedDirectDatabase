@@ -37,12 +37,20 @@ public class PingRequest extends Request<Void> {// TODO do regular pings
 		long node_date = Long.valueOf(blocks.get(0).getDatasAsString());
 		
 		if (source_node.setDistantDate(node_date)) {
-			source_node.send(request_handler.getRequestByClass(PongRequest.class).createRequest(null, source_node));
+			request_handler.getRequestByClass(PongRequest.class).sendRequest(null, source_node);
 		}
 	}
 	
 	public ArrayList<RequestBlock> createRequest(Void options, Node dest_node) {
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), String.valueOf(System.currentTimeMillis())));
+	}
+	
+	protected boolean isCloseChannelRequest(ErrorReturn options) {
+		return false;
+	}
+	
+	protected boolean isCloseChannelRequest(Void options) {
+		return false;
 	}
 	
 }

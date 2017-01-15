@@ -42,7 +42,20 @@ public abstract class Request<T> {
 	
 	public abstract void onRequest(ArrayList<RequestBlock> blocks, Node source_node);
 	
-	public abstract ArrayList<RequestBlock> createRequest(T options, Node dest_node);// TODO remplace createRequest by sendRequest ?
+	public abstract ArrayList<RequestBlock> createRequest(T options, Node dest_node);
+	
+	public final void sendRequest(T options, Node dest_node) throws NullPointerException, IndexOutOfBoundsException {
+		ArrayList<RequestBlock> blocks = createRequest(options, dest_node);
+		if (blocks == null) {
+			throw new NullPointerException("No blocks to send");
+		}
+		if (blocks.size() == 0) {
+			throw new IndexOutOfBoundsException("No blocks to send");
+		}
+		dest_node.sendBlocks(blocks, isCloseChannelRequest(options));
+	}
+	
+	protected abstract boolean isCloseChannelRequest(T options);
 	
 	// TODO check if createRequest[0].name <=> getHandleName() before send
 	

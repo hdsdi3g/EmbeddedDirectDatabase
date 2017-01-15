@@ -46,4 +46,8 @@ public class DisconnectRequest extends Request<Void> {// TODO call before close
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), ""));
 	}
 	
+	protected boolean isCloseChannelRequest(Void options) {
+		return true;
+	}
+	
 }

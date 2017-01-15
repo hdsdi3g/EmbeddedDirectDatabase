@@ -246,7 +246,7 @@ public class ITQueue {
 			throw new NullPointerException("\"console\" can't to be null");
 		}
 		
-		console.addOrder("ql", "Queue list", "Display actual queue list", ITQueue.class, param -> {
+		console.addOrder("ql", "Queue list", "Display actual queue list", getClass(), param -> {
 			if (pending_tasks.isEmpty()) {
 				System.out.println("No waiting task to display in queue.");
 			} else {

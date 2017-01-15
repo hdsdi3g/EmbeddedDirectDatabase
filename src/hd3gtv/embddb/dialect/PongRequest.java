@@ -54,4 +54,8 @@ public class PongRequest extends Request<Void> {
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), pool_manager.getUUIDRef().toString()));
 	}
 	
+	protected boolean isCloseChannelRequest(Void options) {
+		return false;
+	}
+	
 }

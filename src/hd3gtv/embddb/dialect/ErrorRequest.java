@@ -45,7 +45,11 @@ public class ErrorRequest extends Request<ErrorReturn> {
 	public void directSendError(Node node, String message, Class<?> caller, boolean disconnectme) {
 		ErrorRequest er = request_handler.getRequestByClass(ErrorRequest.class);
 		ErrorReturn error = new ErrorReturn(node, message, caller, disconnectme);
-		node.send(er.createRequest(error, node));
+		er.sendRequest(error, node);
+	}
+	
+	protected boolean isCloseChannelRequest(ErrorReturn options) {
+		return false;
 	}
 	
 }

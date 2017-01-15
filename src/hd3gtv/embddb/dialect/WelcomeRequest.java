@@ -43,4 +43,8 @@ public class WelcomeRequest extends Request<Version> {
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), version.toString()));
 	}
 	
+	protected boolean isCloseChannelRequest(Version options) {
+		return false;
+	}
+	
 }

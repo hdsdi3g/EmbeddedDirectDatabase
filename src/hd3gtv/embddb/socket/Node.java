@@ -38,8 +38,9 @@ import com.google.gson.JsonObject;
 
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.dialect.ErrorReturn;
-import hd3gtv.embddb.tools.ArrayWrapper;
+import hd3gtv.embddb.dialect.Request;
 import hd3gtv.embddb.tools.Hexview;
+import hd3gtv.tools.TableList;
 
 public class Node {
 	
@@ -121,8 +122,8 @@ public class Node {
 			}
 		}
 		
-		void asyncWrite() {
-			channel.write(buffer, this, pool_manager.getProtocol().getHandlerWriter());
+		void asyncWrite(boolean close_channel_after_send) {
+			channel.write(buffer, this, pool_manager.getProtocol().getHandlerWriter(close_channel_after_send));
 		}
 		
 		/**
@@ -185,7 +186,7 @@ public class Node {
 		 * It will add to queue.
 		 * @throws IOException if channel is closed.
 		 */
-		public void sendDatas(ArrayList<RequestBlock> to_send) throws IOException {
+		public void sendDatas(ArrayList<RequestBlock> to_send, boolean close_channel_after_send) throws IOException {
 			checkIfOpen();
 			
 			pool_manager.getQueue().addToQueue(() -> {
@@ -203,7 +204,7 @@ public class Node {
 				
 				byte[] datas = pool_manager.getProtocol().compressBlocks(to_send);
 				encrypt(datas);
-				asyncWrite();
+				asyncWrite(close_channel_after_send);
 			}, e -> {
 				log.error("Can't send datas " + toString(), e);
 			});
@@ -245,22 +246,17 @@ public class Node {
 		}
 	}
 	
-	public void send(RequestBlock to_send) {
-		send(ArrayWrapper.asArrayList(to_send));
+	public <O, T extends Request<O>> void sendRequest(Class<T> request_class, O options) {
+		T request = pool_manager.getRequestHandler().getRequestByClass(request_class);
+		if (request == null) {
+			throw new NullPointerException("No requests to send");
+		}
+		request.sendRequest(options, this);
 	}
 	
-	public void send(String name, String datas) {
-		send(new RequestBlock(name, datas));
-	}
-	
-	public void send(String name, byte[] datas) {
-		send(new RequestBlock(name, datas));
-	}
-	
-	// TODO create a send & close after send ??
-	public void send(ArrayList<RequestBlock> to_send) {
+	public void sendBlocks(ArrayList<RequestBlock> to_send, boolean close_channel_after_send) {
 		try {
-			channelbucket.sendDatas(to_send);
+			channelbucket.sendDatas(to_send, close_channel_after_send);
 		} catch (IOException e) {
 			List<String> block_names = to_send.stream().map(b -> {
 				return b.getName();
@@ -389,22 +385,26 @@ public class Node {
 		return true;
 	}
 	
-	public String getActualStatus() {// TODO call this in console
-		StringBuilder sb = new StringBuilder();
-		sb.append(channelbucket.getProviderClass().getSimpleName());
-		sb.append(" to ");
-		sb.append(socket_addr.getHostString());
-		sb.append(":");
-		sb.append(socket_addr.getPort());
-		sb.append(", delta time ");
-		sb.append(server_delta_time);
-		sb.append(" ms ");
-		if (uuid_ref != null) {
-			sb.append(uuid_ref.toString());
-		} else {
-			sb.append("no UUID");
+	/**
+	 * Console usage.
+	 */
+	public void addToActualStatus(TableList table) {
+		String host = socket_addr.getHostString();
+		if (socket_addr.getPort() != pool_manager.getProtocol().getDefaultTCPPort()) {
+			host = host + ":" + socket_addr.getPort();
 		}
-		return sb.toString();
+		String provider = channelbucket.getProviderClass().getSimpleName();
+		String isopen = "open";
+		if (isOpenSocket() == false) {
+			isopen = "CLOSE";
+		}
+		String deltatime = server_delta_time + " ms";
+		String uuid = "<no uuid>";
+		if (uuid_ref != null) {
+			uuid = uuid_ref.toString();
+		}
+		
+		table.addRow(host, provider, isopen, deltatime, uuid);
 	}
 	
 }

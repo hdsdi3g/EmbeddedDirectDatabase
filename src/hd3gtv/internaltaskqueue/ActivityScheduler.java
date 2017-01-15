@@ -118,7 +118,7 @@ public class ActivityScheduler<T> {
 		if (console == null) {
 			throw new NullPointerException("\"console\" can't to be null");
 		}
-		console.addOrder("scl", "Activity Scheduler List", "Display the activated regular task list", ActivityScheduler.class, param -> {
+		console.addOrder("scl", "Activity Scheduler List", "Display the activated regular task list", getClass(), param -> {
 			
 			if (regular_tasks.isEmpty()) {
 				System.out.println("No regular tasks to display.");

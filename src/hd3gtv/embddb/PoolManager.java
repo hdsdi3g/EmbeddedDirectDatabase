@@ -25,7 +25,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import org.apache.log4j.Logger;
 
@@ -33,6 +32,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import hd3gtv.embddb.dialect.RequestHandler;
+import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.Protocol;
 import hd3gtv.embddb.socket.SocketClient;
@@ -87,7 +87,9 @@ public class PoolManager {
 			throw new NullPointerException("\"queue\" can't to be null");
 		}
 		queue.setConsole(console);
-		node_list = new NodeList(queue);
+		
+		node_list = new NodeList(this);
+		node_list.setConsole(console);
 		
 		uuid_ref = UUID.randomUUID();
 		addr_master = new AddressMaster();
@@ -95,18 +97,7 @@ public class PoolManager {
 		
 		protocol = new Protocol(master_password_key);
 		
-		/*dialogs = new ArrayList<>();
-		dialogs.add(new HandCheck(protocol));
-		dialogs.add(new PingPongTime());
-		dialogs.add(new ClientList(this));
-		dialogs.add(new DisconnectNode(this));
-		
-		dialogs_by_class = new HashMap<>(dialogs.size());
-		dialogs.forEach(d -> {
-			dialogs_by_class.put(d.getClass(), d);
-		});*/
-		
-		// scheduler = new ActivityScheduler<>();//TODO set
+		// scheduler = new ActivityScheduler<>();//TODO set ActivityScheduler
 		// scheduler.setConsole(console);
 		
 		scheduled_autodiscover = Executors.newSingleThreadScheduledExecutor();
@@ -215,81 +206,37 @@ public class PoolManager {
 	/**
 	 * @param callback_on_connection Always callback it, even if already exists.
 	 */
-	public void declareNewPotentialDistantServer(InetSocketAddress server, Consumer<Node> callback_on_connection) throws IOException {
+	public void declareNewPotentialDistantServer(InetSocketAddress server, ConnectionCallback callback_on_connection) throws IOException {
 		if (isNotThisServerAddress(server) == false) {
+			callback_on_connection.onLocalServerConnection(server);
 			return;
 		}
 		
 		Node node = node_list.get(server);
 		
 		if (node != null) {
-			callback_on_connection.accept(node);
+			callback_on_connection.alreadyConnectedNode(node);
 		} else {
 			new SocketClient(this, server, n -> {
 				if (node_list.add(n)) {
-					callback_on_connection.accept(n);
+					callback_on_connection.alreadyConnectedNode(node);
 				} else {
-					callback_on_connection.accept(node_list.get(server));
+					callback_on_connection.onNewConnectedNode(node_list.get(server));
 				}
 			});
 		}
 	}
 	
 	/**
-	 * TODO call at boot with configuration
 	 * @param callback_on_connection Always callback it, even if already exists.
 	 */
-	public void declareNewPotentialDistantServer(InetAddress addr, Consumer<Node> callback_on_connection) throws IOException {
+	public void declareNewPotentialDistantServer(InetAddress addr, ConnectionCallback callback_on_connection) throws IOException {
 		declareNewPotentialDistantServer(new InetSocketAddress(addr, getProtocol().getDefaultTCPPort()), callback_on_connection);
 	}
 	
 	public NodeList getNodeList() {
 		return node_list;
 	}
-	
-	/*synchronized void declareClient(ClientUnit client) {
-		log.info("Add valid client " + client);
-		
-		scheduler.add(client, () -> {
-			queue.addToQueue(() -> {
-				client.doPingPong();
-			}, e -> {
-				log.error("Can't prepare Ping pong request");
-			});
-		}, 5000, 1000, TimeUnit.MILLISECONDS);
-		
-		clients.add(client);
-	}
-	
-	synchronized void removeClient(ClientUnit client) {
-		log.info("Remove client " + client);
-		
-		scheduler.remove(client);
-		clients.remove(client);
-	}
-	
-	public synchronized void removeClient(EDDBClient client) {
-		log.info("Remove client " + client);
-		
-		clients.removeIf(p -> {
-			if (p.isThisInternalClient(client)) {
-				scheduler.remove(p);
-				return true;
-			}
-			return false;
-		});
-	}
-	
-	public void removeClient(InetSocketAddress client) {
-		log.info("Remove client " + client);
-		try {
-			clients.stream().filter(p -> {
-				return p.getConnectedServer().equals(client);
-			}).findFirst().get().close();
-		} catch (NoSuchElementException e) {
-			log.debug("Can't found client " + client, e);
-		}
-	}*/
 	
 	public RequestHandler getRequestHandler() {
 		return request_handler;
@@ -303,18 +250,22 @@ public class PoolManager {
 		return console;
 	}
 	
+	// TODO create console for server
+	// TODO create console for nodelist
+	// TODO create console for autodiscover
+	
 	/**
 	 * Blocking !
 	 */
-	/*public void startConsole() {
-		console.addOrder("sl", "Connected servers list", "Display the connected server list (as client)", PoolManager.class, param -> {
+	public void startConsole() {
+		/*console.addOrder("sl", "Connected servers list", "Display the connected server list (as client)", PoolManager.class, param -> {
 			System.out.println("Display " + clients.size() + " connected servers list:");
 			clients.forEach(client -> {
 				System.out.println(client.getActualStatus());
 			});
-		});
+		});*/
 		
-		console.addOrder("autod", "Autodiscover", "Display the client autodiscover status. Usage autod [start | stop | run]", PoolManager.class, param -> {
+		/*console.addOrder("autod", "Autodiscover", "Display the client autodiscover status. Usage autod [start | stop | run]", PoolManager.class, param -> {
 			if (param == null | param.equals("")) {
 				System.out.println("Autodiscover status:");
 				System.out.println("Delay: " + regular_autodiscover.getDelay(TimeUnit.SECONDS) + " seconds");
@@ -332,15 +283,14 @@ public class PoolManager {
 			} else {
 				throw new Exception("Unknow param " + param);
 			}
-		});
-		
+		});*/
 		console.waitActions();
-	}*/
+	}
 	
 	/**
 	 * Blocking.
 	 */
-	/*public void sayToClientsToDisconnectMe() {
+	/*public void sayToClientsToDisconnectMe() { //TODO sayToClientsToDisconnectMe ?
 		ParametedProcedure<ClientUnit> process = client -> {
 			client.disconnectMe();
 		};
@@ -367,37 +317,6 @@ public class PoolManager {
 		}
 	}
 	
-	/**
-	 * @return JsonArray String
-	 */
-	/*public static String serializing(Stream<InetSocketAddress> list) {
-		return list.map(a -> {
-			JsonObject jo = new JsonObject();
-			jo.addProperty("ip", a.getAddress().getHostAddress());
-			jo.addProperty("port", a.getPort());
-			return jo;
-		}).collect(() -> {
-			return new JsonArray();
-		}, (jsonarray, jsonobject) -> {
-			jsonarray.add(jsonobject);
-		}, (jsonarray1, jsonarray2) -> {
-			jsonarray1.addAll(jsonarray2);
-		}).toString();
-	}
-	
-	private static JsonParser parser = new JsonParser();
-	
-	public static ArrayList<InetSocketAddress> deserializing(String json_array_list) {
-		JsonArray ja = parser.parse(json_array_list).getAsJsonArray();
-		
-		ArrayList<InetSocketAddress> client_list = new ArrayList<>(ja.size() + 1);
-		
-		ja.forEach(je -> {
-			JsonObject jo = je.getAsJsonObject();
-			client_list.add(new InetSocketAddress(jo.get("ip").getAsString(), jo.get("port").getAsInt()));
-		});
-		
-		return client_list;
-	}*/
+	// TODO do a close all nodes console operation
 	
 }

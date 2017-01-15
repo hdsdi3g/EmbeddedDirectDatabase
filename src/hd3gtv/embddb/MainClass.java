@@ -27,6 +27,8 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import hd3gtv.embddb.socket.ConnectionCallback;
+import hd3gtv.embddb.socket.Node;
 import hd3gtv.internaltaskqueue.ITQueue;
 
 public class MainClass {
@@ -38,34 +40,40 @@ public class MainClass {
 		
 		ITQueue itqueue = new ITQueue(2);
 		PoolManager poolmanager = new PoolManager(itqueue, "test");
-		poolmanager.setEnableLoopClients(true);
 		poolmanager.startServer();
 		
-		poolmanager.startConsole();
-		System.exit(0);
-		
 		// TODO manage white/black range addr list for autodiscover
+		// TODO do autodiscover operation only if node list changed
+		
+		Thread.sleep(50);
 		
 		Properties conf = new Properties();
-		
 		conf.load(FileUtils.openInputStream(new File("conf.properties")));
 		
 		importConf(conf, poolmanager.getProtocol().getDefaultTCPPort(), addr -> {
 			try {
-				poolmanager.createClient(addr);
+				poolmanager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
+					
+					public void onNewConnectedNode(Node node) {
+						log.info("Connected to node (declared by configuration): " + node);
+					}
+					
+					public void onLocalServerConnection(InetSocketAddress server) {
+						log.warn("Can't add local server (" + server.getHostString() + ":" + server.getPort() + ") not node list. Check your configuration.");
+					}
+					
+					public void alreadyConnectedNode(Node node) {
+						log.info("Node is already connected: " + node);
+					}
+				});
 			} catch (Exception e) {
-				log.error("Can't create client: " + addr, e);
+				log.error("Can't create node: " + addr, e);
 			}
 		});
 		
 		Thread.sleep(50);
 		
 		poolmanager.startConsole();
-		
-		/*GlobalObjectFactory gof = new GlobalObjectFactory();
-		Demo demo = gof.create(Demo.class);
-		System.out.println(gof.toString());
-		System.exit(0);*/
 	}
 	
 	private static void importConf(Properties conf, int default_port, Consumer<InetSocketAddress> callback_addr) throws Exception {

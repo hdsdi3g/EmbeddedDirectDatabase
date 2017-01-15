@@ -11,18 +11,18 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 25 nov. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 6 janv. 2017
  * 
 */
-package hd3gtv.embddb;
+package hd3gtv.embddb.socket;
 
-import org.apache.log4j.Logger;
+import hd3gtv.embddb.socket.Node.ChannelBucket;
 
-/**
- * @deprecated
- */
-public class ClientUnit {
+class SocketHandlerWriterCloser extends SocketHandlerWriter {
 	
-	private static Logger log = Logger.getLogger(ClientUnit.class);
+	public void completed(Integer size, ChannelBucket bucket) {
+		showLogs(size, bucket);
+		bucket.close();
+	}
 	
 }

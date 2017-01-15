@@ -24,7 +24,7 @@ class SocketHandlerWriter implements SocketHandler {
 	
 	private static final Logger log = Logger.getLogger(SocketHandlerWriter.class);
 	
-	public void completed(Integer size, ChannelBucket bucket) {
+	protected void showLogs(Integer size, ChannelBucket bucket) {
 		if (log.isTraceEnabled()) {
 			log.trace("Sended to " + bucket + " " + size + " bytes");
 		}
@@ -32,7 +32,10 @@ class SocketHandlerWriter implements SocketHandler {
 		if (Protocol.DISPLAY_HEXDUMP) {
 			bucket.dump("Crypted sended content to client");
 		}
-		
+	}
+	
+	public void completed(Integer size, ChannelBucket bucket) {
+		showLogs(size, bucket);
 		bucket.asyncRead();
 	}
 	

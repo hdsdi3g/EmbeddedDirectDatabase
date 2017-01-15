@@ -42,7 +42,7 @@ public class HelloRequest extends Request<Void> {// TODO after create socket
 		Version distant = Version.resolveFromString(blocks.get(0).getDatasAsString());
 		
 		if (distant.equals(Protocol.VERSION)) {
-			source_node.send(request_handler.getRequestByClass(WelcomeRequest.class).createRequest(Protocol.VERSION, source_node));
+			request_handler.getRequestByClass(WelcomeRequest.class).sendRequest(Protocol.VERSION, source_node);
 		} else {
 			log.error("Node " + source_node + " as a version problem. This = " + Protocol.VERSION + " and distant node = " + distant);
 			ErrorRequest er = request_handler.getRequestByClass(ErrorRequest.class);
@@ -52,6 +52,10 @@ public class HelloRequest extends Request<Void> {// TODO after create socket
 	
 	public ArrayList<RequestBlock> createRequest(Void options, Node dest_node) {
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), Protocol.VERSION.toString()));
+	}
+	
+	protected boolean isCloseChannelRequest(Void options) {
+		return false;
 	}
 	
 }

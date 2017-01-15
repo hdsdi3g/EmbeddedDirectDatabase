@@ -64,6 +64,7 @@ public class Protocol {
 	
 	private SocketHandlerReader handler_reader;
 	private SocketHandlerWriter handler_writer;
+	private SocketHandlerWriterCloser handler_writer_closer;
 	
 	public Protocol(String master_password_key) throws NoSuchAlgorithmException, NoSuchProviderException, UnsupportedEncodingException {
 		if (master_password_key == null) {
@@ -74,6 +75,7 @@ public class Protocol {
 		}
 		handler_reader = new SocketHandlerReader();
 		handler_writer = new SocketHandlerWriter();
+		handler_writer_closer = new SocketHandlerWriterCloser();
 		
 		MessageDigest md = MessageDigest.getInstance("SHA-256", "BC");
 		byte[] key = md.digest(master_password_key.getBytes("UTF-8"));
@@ -90,8 +92,12 @@ public class Protocol {
 		return handler_reader;
 	}
 	
-	public SocketHandlerWriter getHandlerWriter() {
-		return handler_writer;
+	public SocketHandlerWriter getHandlerWriter(boolean close_channel_after_send) {
+		if (close_channel_after_send) {
+			return handler_writer_closer;
+		} else {
+			return handler_writer;
+		}
 	}
 	
 	public void encrypt(ByteBuffer buffer) throws GeneralSecurityException {

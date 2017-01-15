@@ -28,6 +28,7 @@ import com.google.gson.JsonParser;
 
 import hd3gtv.embddb.NodeList;
 import hd3gtv.embddb.PoolManager;
+import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
@@ -64,8 +65,19 @@ public class NodeListRequest extends Request<Void> {
 		UUID this_uuid = pool_manager.getUUIDRef();
 		
 		ParametedProcedure<InetSocketAddress> operation_declare = addr -> {
-			// TODO display only if really search & open: log.info("Autodiscover try to connect to " + addr + " (offered by " + source_node + ")");
-			pool_manager.declareNewPotentialDistantServer(addr, node -> {
+			pool_manager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
+				
+				public void onNewConnectedNode(Node node) {
+					log.info("Autodiscover allowed to connect to " + node + " (provided by " + source_node + ")");
+				}
+				
+				public void onLocalServerConnection(InetSocketAddress server) {
+					log.warn("Autodiscover cant add this server (" + server + ")  as node (provided by " + source_node + ")");
+				}
+				
+				public void alreadyConnectedNode(Node node) {
+					log.info("Autodiscover cant add an already connected node (" + node + " provided by " + source_node + ")");
+				}
 			});
 		};
 		
@@ -114,6 +126,10 @@ public class NodeListRequest extends Request<Void> {
 	
 	public ArrayList<RequestBlock> createRequest(Void opt, Node dest_node) {// TODO call regulary
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), pool_manager.getNodeList().makeAutodiscoverList().toString()));
+	}
+	
+	protected boolean isCloseChannelRequest(Void options) {
+		return false;
 	}
 	
 }
