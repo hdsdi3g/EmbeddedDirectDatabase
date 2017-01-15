@@ -46,7 +46,26 @@ public class ActivityScheduler<T> {
 		RegularTask rt = new RegularTask(reference, procedure, initialDelay, period, unit);
 		
 		synchronized (regular_tasks) {
-			regular_tasks.add(rt);
+			if (regular_tasks.stream().anyMatch(task -> {
+				return task.equalsReference(reference);
+			}) == false) {
+				regular_tasks.add(rt);
+			}
+		}
+	}
+	
+	/**
+	 * @param procedure Add only lightweight actions, like "add a Task in a queue".
+	 */
+	public void add(T reference, ActivityScheduledAction<T> action) {
+		RegularTask rt = new RegularTask(reference, action);
+		
+		synchronized (regular_tasks) {
+			if (regular_tasks.stream().anyMatch(task -> {
+				return task.equalsReference(reference);
+			}) == false) {
+				regular_tasks.add(rt);
+			}
 		}
 	}
 	
@@ -66,6 +85,12 @@ public class ActivityScheduler<T> {
 		ScheduledFuture<?> future;
 		T reference;
 		String descr;
+		ActivityScheduledAction<T> action;
+		
+		RegularTask(T reference, ActivityScheduledAction<T> action) {
+			this(reference, action.getRegularScheduledAction(), action.getScheduledActionInitialDelay(), action.getScheduledActionPeriod(), action.getScheduledActionPeriodUnit());
+			this.action = action;
+		}
 		
 		RegularTask(T reference, Procedure procedure, long initialDelay, long period, TimeUnit unit) {
 			this.reference = reference;
@@ -85,6 +110,11 @@ public class ActivityScheduler<T> {
 				try {
 					procedure.process();
 				} catch (Exception e) {
+					if (action != null) {
+						if (action.onScheduledActionError(e)) {
+							return;
+						}
+					}
 					log.error("Can't execute (regular) process", e);
 					
 					synchronized (regular_tasks) {
@@ -104,7 +134,7 @@ public class ActivityScheduler<T> {
 			future.cancel(false);
 		}
 		
-		boolean equalsReference(Object compare) {
+		boolean equalsReference(T compare) {
 			return reference.equals(compare);
 		}
 		
@@ -115,7 +145,7 @@ public class ActivityScheduler<T> {
 	}
 	
 	public void setConsole(InteractiveConsoleMode console) {
-		if (console == null) {
+		/*if (console == null) {// TODO handle multiple with console ?!
 			throw new NullPointerException("\"console\" can't to be null");
 		}
 		console.addOrder("scl", "Activity Scheduler List", "Display the activated regular task list", getClass(), param -> {
@@ -128,7 +158,7 @@ public class ActivityScheduler<T> {
 					System.out.println(pt.toString());
 				});
 			}
-		});
+		});*/
 	}
 	
 }

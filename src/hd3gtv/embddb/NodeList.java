@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
 
@@ -28,10 +30,14 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import hd3gtv.embddb.dialect.DisconnectRequest;
+import hd3gtv.embddb.dialect.NodelistRequest;
 import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
+import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.InteractiveConsoleMode;
-import hd3gtv.internaltaskqueue.ITQueue;
+import hd3gtv.internaltaskqueue.ActivityScheduledAction;
+import hd3gtv.internaltaskqueue.ActivityScheduler;
+import hd3gtv.internaltaskqueue.Procedure;
 import hd3gtv.tools.TableList;
 
 public class NodeList {
@@ -43,11 +49,10 @@ public class NodeList {
 	private List<Node> nodes;
 	private HashMap<InetSocketAddress, Node> nodes_by_addr;
 	private HashMap<UUID, Node> nodes_by_uuid;
-	private JsonArray autodiscover_current_list = null;
-	
-	private ITQueue queue;
-	private InteractiveConsoleMode console;
+	private AtomicBoolean autodiscover_can_be_remake = null;
 	private PoolManager pool_manager;
+	
+	private ActivityScheduler<Node> node_scheduler;
 	
 	NodeList(PoolManager pool_manager) {
 		this.pool_manager = pool_manager;
@@ -55,10 +60,13 @@ public class NodeList {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
 		
-		this.queue = pool_manager.getQueue();
 		nodes = new ArrayList<>();
 		nodes_by_addr = new HashMap<>();
 		nodes_by_uuid = new HashMap<>();
+		
+		autodiscover_can_be_remake = new AtomicBoolean(true);
+		
+		node_scheduler = new ActivityScheduler<>();
 	}
 	
 	/**
@@ -97,7 +105,7 @@ public class NodeList {
 		return nodes_by_uuid.containsKey(uuid);
 	}
 	
-	public void purgeClosedNodes() {// TODO regular call
+	private void purgeClosedNodes() {
 		synchronized (lock) {
 			nodes.removeIf(n -> {
 				if (n.isOpenSocket()) {
@@ -105,7 +113,7 @@ public class NodeList {
 				}
 				nodes_by_addr.remove(n.getSocketAddr());
 				nodes_by_uuid.remove(n.getUUID());
-				autodiscover_current_list = null;
+				autodiscover_can_be_remake.set(true);
 				return true;
 			});
 			
@@ -137,21 +145,23 @@ public class NodeList {
 		}
 	}
 	
-	public void remove(Node node) {// TODO set to package
+	public void remove(Node node) {
 		synchronized (lock) {
 			log.info("Remove node " + node);
 			
-			autodiscover_current_list = null;
+			autodiscover_can_be_remake.set(true);
 			nodes.remove(node);
 			nodes_by_uuid.remove(node.getUUID());
 			nodes_by_addr.remove(node.getSocketAddr());
 		}
+		
+		node_scheduler.remove(node);
 	}
 	
 	/**
 	 * @return false if node is already added
 	 */
-	public boolean add(Node node) {// TODO set to package
+	public boolean add(Node node) {
 		if (nodes.contains(node)) {
 			if (node.isOpenSocket()) {
 				return false;
@@ -160,16 +170,19 @@ public class NodeList {
 		synchronized (lock) {
 			log.debug("Add node " + node);
 			
-			autodiscover_current_list = null;
+			autodiscover_can_be_remake.set(true);
 			nodes_by_addr.put(node.getSocketAddr(), node);
 			if (node.getUUID() != null) {
 				nodes_by_uuid.put(node.getUUID(), node);
 			}
-			return nodes.add(node);
+			nodes.add(node);
 		}
+		
+		node_scheduler.add(node, node.getScheduledAction());
+		return true;
 	}
 	
-	public void updateUUID(Node node) {// TODO set to package
+	public void updateUUID(Node node) {
 		if (node.getUUID() == null) {
 			throw new NullPointerException("Node uuid can't to be null for " + node);
 		}
@@ -185,25 +198,23 @@ public class NodeList {
 	 * @return array of objects (Node.getAutodiscoverIDCard())
 	 */
 	public JsonArray makeAutodiscoverList() {
-		if (autodiscover_current_list == null) {
-			synchronized (lock) {
-				autodiscover_current_list = new JsonArray();
-				nodes.forEach(n -> {
-					JsonObject jo = n.getAutodiscoverIDCard();
-					if (jo != null) {
-						autodiscover_current_list.add(jo);
-					}
-				});
-			}
+		JsonArray autodiscover_list = new JsonArray();
+		synchronized (lock) {
+			nodes.forEach(n -> {
+				JsonObject jo = n.getAutodiscoverIDCard();
+				if (jo != null) {
+					autodiscover_list.add(jo);
+				}
+			});
 		}
-		
-		return autodiscover_current_list;
+		return autodiscover_list;
 	}
 	
 	public void setConsole(InteractiveConsoleMode console) {
 		if (console == null) {
 			throw new NullPointerException("\"console\" can't to be null");
 		}
+		node_scheduler.setConsole(console);
 		
 		console.addOrder("nl", "Node list", "Display actual connected node", getClass(), param -> {
 			TableList table = new TableList(5);
@@ -266,8 +277,11 @@ public class NodeList {
 			}
 		});
 		
-		console.addOrder("chknodes", "Check nodes list", "Purge closed nodes", getClass(), param -> {
+		console.addOrder("gcnodes", "Garbage collector node list", "Purge closed nodes", getClass(), param -> {
 			purgeClosedNodes();
+		});
+		console.addOrder("closenodes", "Close all nodes", "Force to disconnect all connected nodes", getClass(), param -> {
+			sayToAllNodesToDisconnectMe(false);
 		});
 	}
 	
@@ -291,6 +305,61 @@ public class NodeList {
 			}
 		}
 		return InetSocketAddress.createUnresolved(full_addr, port);
+	}
+	
+	/**
+	 * @return check if the socket is open and do ping.
+	 */
+	public ActivityScheduledAction<NodeList> getScheduledAction() {
+		return new ActivityScheduledAction<NodeList>() {
+			
+			public boolean onScheduledActionError(Exception e) {
+				log.error("Can't do reguar scheduled nodelist operations");
+				return true;
+			}
+			
+			public TimeUnit getScheduledActionPeriodUnit() {
+				return TimeUnit.SECONDS;
+			}
+			
+			public long getScheduledActionPeriod() {
+				return 60;
+			}
+			
+			public long getScheduledActionInitialDelay() {
+				return TimeUnit.SECONDS.toMillis(60);
+			}
+			
+			public Procedure getRegularScheduledAction() {
+				return () -> {
+					purgeClosedNodes();
+					if (autodiscover_can_be_remake.compareAndSet(true, false)) {
+						ArrayList<RequestBlock> to_send = pool_manager.getRequestHandler().getRequestByClass(NodelistRequest.class).createRequest(null);
+						if (to_send != null) {
+							nodes.forEach(n -> {
+								n.sendBlocks(to_send, false);
+							});
+						}
+					}
+				};
+			}
+		};
+	}
+	
+	public void sayToAllNodesToDisconnectMe(boolean blocking) {
+		ArrayList<RequestBlock> to_send = pool_manager.getRequestHandler().getRequestByClass(DisconnectRequest.class).createRequest(null);
+		nodes.forEach(n -> {
+			n.sendBlocks(to_send, true);
+		});
+		
+		if (blocking) {
+			try {
+				while (nodes.isEmpty() == false) {
+					Thread.sleep(1);
+				}
+			} catch (InterruptedException e1) {
+			}
+		}
 	}
 	
 }

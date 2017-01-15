@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
+import java.nio.channels.ClosedChannelException;
 
 import org.apache.log4j.Logger;
 
@@ -30,24 +31,23 @@ public class SocketServer extends StoppableThread {
 	
 	private static final Logger log = Logger.getLogger(SocketServer.class);
 	
-	private InetSocketAddress listen;
 	private AsynchronousServerSocketChannel server;
 	private PoolManager pool_manager;
+	private InetSocketAddress listen;
 	
-	public SocketServer(PoolManager pool_manager) throws IOException {
+	public SocketServer(PoolManager pool_manager, InetSocketAddress listen) throws IOException {
 		super("SocketServer", log);
 		
 		this.pool_manager = pool_manager;
 		if (pool_manager == null) {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
-		
-		listen = pool_manager.getServerListenSocketAddress();
-		server = null;
-	}
-	
-	public void setListen(InetSocketAddress listen) {
 		this.listen = listen;
+		if (listen == null) {
+			throw new NullPointerException("\"listen\" can't to be null");
+		}
+		
+		server = null;
 	}
 	
 	public boolean isOpen() {
@@ -57,8 +57,17 @@ public class SocketServer extends StoppableThread {
 		return false;
 	}
 	
+	/**
+	 * @return null if server is closed
+	 */
 	public InetSocketAddress getListen() {
-		return listen;
+		try {
+			return (InetSocketAddress) server.getLocalAddress();
+		} catch (ClosedChannelException e) {
+		} catch (IOException e) {
+			log.error("Can't get server local address");
+		}
+		return null;
 	}
 	
 	public void run() {
@@ -79,26 +88,10 @@ public class SocketServer extends StoppableThread {
 				node.getChannelbucket().asyncRead();
 				pool_manager.getNodeList().add(node);
 				
-				/*Thread t = new Thread(() -> {
-					try {
-						while (true) {
-							Thread.sleep(1000);
-							active_buckets.get(0).buffer.clear();
-							active_buckets.get(0).buffer.put("Sauvage".getBytes());
-							active_buckets.get(0).buffer.flip();
-							active_buckets.get(0).channel.write(active_buckets.get(0).buffer, active_buckets.get(0), handler_writer);
-							// active_buckets.get(0).buffer.clear();
-							// System.out.println("OK");
-						}
-					} catch (Exception e) {
-						e.printStackTrace();
-					}
-				});
-				t.setDaemon(true);
-				t.start();*/
-				
 			} catch (Exception e) {
-				log.warn("Error during socket handling", e);
+				if (isWantToRun()) {
+					log.warn("Error during socket handling", e);
+				}
 			}
 		}
 		
@@ -108,6 +101,15 @@ public class SocketServer extends StoppableThread {
 			} catch (IOException e) {
 				log.warn("Can't close server", e);
 			}
+		}
+	}
+	
+	public void wantToStop() {
+		super.wantToStop();
+		try {
+			server.close();
+		} catch (IOException e) {
+			log.error("Can't close local server", e);
 		}
 	}
 	

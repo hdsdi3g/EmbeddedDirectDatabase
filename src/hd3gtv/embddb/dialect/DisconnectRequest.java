@@ -25,11 +25,11 @@ import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 
-public class DisconnectRequest extends Request<Void> {// TODO call before close
+public class DisconnectRequest extends Request<Void> {
 	
 	private static Logger log = Logger.getLogger(DisconnectRequest.class);
 	
-	public DisconnectRequest(PoolManager pool_manager) {
+	DisconnectRequest(PoolManager pool_manager) {
 		super(pool_manager);
 	}
 	
@@ -42,7 +42,7 @@ public class DisconnectRequest extends Request<Void> {// TODO call before close
 		node.getChannelbucket().close();
 	}
 	
-	public ArrayList<RequestBlock> createRequest(Void options, Node dest_node) {
+	public ArrayList<RequestBlock> createRequest(Void options) {
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), ""));
 	}
 	

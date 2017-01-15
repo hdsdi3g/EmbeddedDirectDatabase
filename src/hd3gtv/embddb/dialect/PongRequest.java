@@ -50,7 +50,7 @@ public class PongRequest extends Request<Void> {
 		}
 	}
 	
-	public ArrayList<RequestBlock> createRequest(Void options, Node dest_node) {
+	public ArrayList<RequestBlock> createRequest(Void options) {
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), pool_manager.getUUIDRef().toString()));
 	}
 	

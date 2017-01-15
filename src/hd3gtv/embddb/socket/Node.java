@@ -38,8 +38,11 @@ import com.google.gson.JsonObject;
 
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.dialect.ErrorReturn;
+import hd3gtv.embddb.dialect.PingRequest;
 import hd3gtv.embddb.dialect.Request;
 import hd3gtv.embddb.tools.Hexview;
+import hd3gtv.internaltaskqueue.ActivityScheduledAction;
+import hd3gtv.internaltaskqueue.Procedure;
 import hd3gtv.tools.TableList;
 
 public class Node {
@@ -77,8 +80,6 @@ public class Node {
 	public boolean isOpenSocket() {
 		return channelbucket.channel.isOpen();
 	}
-	
-	// TODO regular check channelbucket state, and if disconnected remove
 	
 	public String toString() {
 		return getSocketAddr().getHostName() + ":" + getSocketAddr().getPort() + " [" + channelbucket.getProviderClass().getSimpleName() + "]";
@@ -246,6 +247,9 @@ public class Node {
 		}
 	}
 	
+	/**
+	 * It will add to queue
+	 */
 	public <O, T extends Request<O>> void sendRequest(Class<T> request_class, O options) {
 		T request = pool_manager.getRequestHandler().getRequestByClass(request_class);
 		if (request == null) {
@@ -254,6 +258,9 @@ public class Node {
 		request.sendRequest(options, this);
 	}
 	
+	/**
+	 * It will add to queue
+	 */
 	public void sendBlocks(ArrayList<RequestBlock> to_send, boolean close_channel_after_send) {
 		try {
 			channelbucket.sendDatas(to_send, close_channel_after_send);
@@ -338,7 +345,7 @@ public class Node {
 		JsonObject jo = new JsonObject();
 		jo.addProperty("uuid", uuid_ref.toString());
 		jo.addProperty("addr", this.socket_addr.getAddress().getHostAddress());
-		jo.addProperty("port", this.socket_addr.getPort()); // TODO port is local or distant ?!
+		jo.addProperty("port", this.socket_addr.getPort()); // XXX port is local or distant ?!
 		return jo;
 	}
 	
@@ -405,6 +412,40 @@ public class Node {
 		}
 		
 		table.addRow(host, provider, isopen, deltatime, uuid);
+	}
+	
+	/**
+	 * @return check if the socket is open and do ping.
+	 */
+	public ActivityScheduledAction<Node> getScheduledAction() {
+		Node current_node = this;
+		return new ActivityScheduledAction<Node>() {
+			
+			public boolean onScheduledActionError(Exception e) {
+				log.warn("Can't execute node scheduled actions");
+				pool_manager.getNodeList().remove(current_node);
+				return false;
+			}
+			
+			public TimeUnit getScheduledActionPeriodUnit() {
+				return TimeUnit.SECONDS;
+			}
+			
+			public long getScheduledActionPeriod() {
+				return 60;
+			}
+			
+			public long getScheduledActionInitialDelay() {
+				return 1000;
+			}
+			
+			public Procedure getRegularScheduledAction() {
+				return () -> {
+					current_node.channelbucket.checkIfOpen();
+					pool_manager.getRequestHandler().getRequestByClass(PingRequest.class).sendRequest(null, current_node);
+				};
+			}
+		};
 	}
 	
 }

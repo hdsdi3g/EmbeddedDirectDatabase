@@ -38,7 +38,7 @@ public class ErrorRequest extends Request<ErrorReturn> {
 		source_node.onErrorReturnFromNode(error);
 	}
 	
-	public ArrayList<RequestBlock> createRequest(ErrorReturn options, Node dest_node) {
+	public ArrayList<RequestBlock> createRequest(ErrorReturn options) {
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), ErrorReturn.toJsonString(pool_manager, options)));
 	}
 	

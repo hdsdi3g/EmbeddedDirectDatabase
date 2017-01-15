@@ -50,7 +50,7 @@ public class HelloRequest extends Request<Void> {// TODO after create socket
 		}
 	}
 	
-	public ArrayList<RequestBlock> createRequest(Void options, Node dest_node) {
+	public ArrayList<RequestBlock> createRequest(Void options) {
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), Protocol.VERSION.toString()));
 	}
 	

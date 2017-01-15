@@ -40,10 +40,9 @@ public class MainClass {
 		
 		ITQueue itqueue = new ITQueue(2);
 		PoolManager poolmanager = new PoolManager(itqueue, "test");
-		poolmanager.startServer();
+		poolmanager.startServer(InetSocketAddress.createUnresolved("0.0.0.0", poolmanager.getProtocol().getDefaultTCPPort()));
 		
 		// TODO manage white/black range addr list for autodiscover
-		// TODO do autodiscover operation only if node list changed
 		
 		Thread.sleep(50);
 		

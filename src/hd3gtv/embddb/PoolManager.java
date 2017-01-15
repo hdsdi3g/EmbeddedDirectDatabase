@@ -21,10 +21,6 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -38,6 +34,7 @@ import hd3gtv.embddb.socket.Protocol;
 import hd3gtv.embddb.socket.SocketClient;
 import hd3gtv.embddb.socket.SocketServer;
 import hd3gtv.embddb.tools.InteractiveConsoleMode;
+import hd3gtv.internaltaskqueue.ActivityScheduler;
 import hd3gtv.internaltaskqueue.ITQueue;
 import hd3gtv.mydmam.MyDMAM;
 import hd3gtv.tools.AddressMaster;
@@ -49,24 +46,19 @@ public class PoolManager {
 	
 	private final Gson simple_gson;
 	
-	/*private ArrayList<Dialog<?, ?>> dialogs;
-	private HashMap<Class<?>, Dialog<?, ?>> dialogs_by_class;*/
-	
 	private SocketServer local_server;
 	private RequestHandler request_handler;
 	
 	private Protocol protocol;
 	private NodeList node_list;
 	private ITQueue queue;
-	// private ActivityScheduler<ClientUnit> scheduler;
-	private final ScheduledExecutorService scheduled_autodiscover;
-	private ScheduledFuture<?> regular_autodiscover;
 	private ShutdownHook shutdown_hook;
 	
 	private InteractiveConsoleMode console;
 	private AddressMaster addr_master;
 	
 	private final UUID uuid_ref;
+	private ActivityScheduler<NodeList> nodelist_scheduler;
 	
 	public PoolManager(ITQueue queue, String master_password_key) throws GeneralSecurityException, IOException {
 		GsonBuilder builder = new GsonBuilder();
@@ -82,6 +74,8 @@ public class PoolManager {
 		MyDMAM.registerBaseSerializers(builder);
 		simple_gson = builder.create();
 		
+		console = new InteractiveConsoleMode();
+		
 		this.queue = queue;
 		if (queue == null) {
 			throw new NullPointerException("\"queue\" can't to be null");
@@ -93,17 +87,16 @@ public class PoolManager {
 		
 		uuid_ref = UUID.randomUUID();
 		addr_master = new AddressMaster();
-		console = new InteractiveConsoleMode();
 		
 		protocol = new Protocol(master_password_key);
 		
-		// scheduler = new ActivityScheduler<>();//TODO set ActivityScheduler
-		// scheduler.setConsole(console);
-		
-		scheduled_autodiscover = Executors.newSingleThreadScheduledExecutor();
 		shutdown_hook = new ShutdownHook();
 		
 		request_handler = new RequestHandler(this);
+		
+		nodelist_scheduler = new ActivityScheduler<>();
+		nodelist_scheduler.setConsole(console);
+		nodelist_scheduler.add(node_list, node_list.getScheduledAction());
 	}
 	
 	public UUID getUUIDRef() {
@@ -123,11 +116,7 @@ public class PoolManager {
 	}
 	
 	public void startServer(InetSocketAddress listen) throws IOException {
-		local_server = new SocketServer(this);
-		
-		if (listen != null) {
-			local_server.setListen(listen);
-		}
+		local_server = new SocketServer(this, listen);
 		
 		if (listen != null) {
 			log.info("Start local server on " + listen);
@@ -137,53 +126,39 @@ public class PoolManager {
 		local_server.start();
 		
 		Runtime.getRuntime().addShutdownHook(shutdown_hook);
-	}
-	
-	public void startServer() throws IOException {
-		startServer(null);
+		
+		console.addOrder("srv", "Server status", "Display the server status", getClass(), param -> {
+			if (local_server.isOpen()) {
+				System.out.println("Server is open on " + local_server.getListen().getHostString() + ":" + local_server.getListen().getPort());
+			} else {
+				System.out.println("Server is closed");
+			}
+		});
+		
+		console.addOrder("closesrv", "Close server", "Close this local server", getClass(), param -> {
+			if (local_server.isOpen() == false) {
+				System.out.println("Server is already closed");
+			}
+			local_server.waitToStop();
+		});
 	}
 	
 	/**
 	 * @return null if closed
 	 */
 	public InetSocketAddress getServerListenSocketAddress() {
-		if (local_server != null) {
-			if (local_server.isOpen()) {
-				return local_server.getListen();
-			}
-		}
-		return null;
-	}
-	
-	public void startRegularAutodiscover() {
-		if (regular_autodiscover.isCancelled() | regular_autodiscover.isDone()) {
-			log.info("Start regular autodiscover");
-			regular_autodiscover = scheduled_autodiscover.scheduleAtFixedRate(() -> {
-				// TODO autoDiscover();
-			}, 1000, 60, TimeUnit.SECONDS);
-		}
-	}
-	
-	public void stopRegularAutodiscover() {
-		if (regular_autodiscover != null) {
-			if (regular_autodiscover.isCancelled() == false) {
-				log.info("Stop regular autodiscover");
-				regular_autodiscover.cancel(false);
-			}
-		}
+		return local_server.getListen();
 	}
 	
 	/**
 	 * Blocking
 	 */
 	public void closeAll() {
-		log.info("Close all functions: clients, server, autodiscover. It's blocking");
+		log.info("Close all functions: clients, server, autodiscover... It's a blocking operation");
 		
-		stopRegularAutodiscover();
-		// sayToClientsToDisconnectMe(); TODO
-		
+		nodelist_scheduler.remove(node_list);
+		node_list.sayToAllNodesToDisconnectMe(true);
 		local_server.waitToStop();
-		
 		try {
 			Runtime.getRuntime().removeShutdownHook(shutdown_hook);
 		} catch (IllegalStateException e) {
@@ -246,77 +221,17 @@ public class PoolManager {
 		return queue;
 	}
 	
-	public InteractiveConsoleMode getConsole() {
-		return console;
-	}
-	
-	// TODO create console for server
-	// TODO create console for nodelist
-	// TODO create console for autodiscover
-	
 	/**
 	 * Blocking !
 	 */
 	public void startConsole() {
-		/*console.addOrder("sl", "Connected servers list", "Display the connected server list (as client)", PoolManager.class, param -> {
-			System.out.println("Display " + clients.size() + " connected servers list:");
-			clients.forEach(client -> {
-				System.out.println(client.getActualStatus());
-			});
-		});*/
-		
-		/*console.addOrder("autod", "Autodiscover", "Display the client autodiscover status. Usage autod [start | stop | run]", PoolManager.class, param -> {
-			if (param == null | param.equals("")) {
-				System.out.println("Autodiscover status:");
-				System.out.println("Delay: " + regular_autodiscover.getDelay(TimeUnit.SECONDS) + " seconds");
-				System.out.println("Cancelled: " + regular_autodiscover.isCancelled());
-				System.out.println("Done: " + regular_autodiscover.isDone());
-			} else if (param.equals("start")) {
-				System.out.println("Start autodiscover.");
-				startRegularAutodiscover();
-			} else if (param.equals("stop")) {
-				System.out.println("Stop autodiscover.");
-				stopRegularAutodiscover();
-			} else if (param.equals("run")) {
-				System.out.println("Run now autodiscover.");
-				autoDiscover();
-			} else {
-				throw new Exception("Unknow param " + param);
-			}
-		});*/
 		console.waitActions();
 	}
-	
-	/**
-	 * Blocking.
-	 */
-	/*public void sayToClientsToDisconnectMe() { //TODO sayToClientsToDisconnectMe ?
-		ParametedProcedure<ClientUnit> process = client -> {
-			client.disconnectMe();
-		};
-		BiConsumer<ClientUnit, Exception> onError = (client, e) -> {
-			log.error("Can't do disconnect action for client " + client, e);
-			removeClient(client);
-		};
-		
-		clients.forEach(client -> {
-			queue.addToQueue(client, process, onError);
-		});
-		
-		try {
-			while (clients.isEmpty() == false) {
-				Thread.sleep(1);
-			}
-		} catch (InterruptedException e1) {
-		}
-	}*/
 	
 	private class ShutdownHook extends Thread {
 		public void run() {
 			closeAll();
 		}
 	}
-	
-	// TODO do a close all nodes console operation
 	
 }

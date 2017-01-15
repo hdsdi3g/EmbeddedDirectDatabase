@@ -42,10 +42,10 @@ public abstract class Request<T> {
 	
 	public abstract void onRequest(ArrayList<RequestBlock> blocks, Node source_node);
 	
-	public abstract ArrayList<RequestBlock> createRequest(T options, Node dest_node);
+	public abstract ArrayList<RequestBlock> createRequest(T options);
 	
 	public final void sendRequest(T options, Node dest_node) throws NullPointerException, IndexOutOfBoundsException {
-		ArrayList<RequestBlock> blocks = createRequest(options, dest_node);
+		ArrayList<RequestBlock> blocks = createRequest(options);
 		if (blocks == null) {
 			throw new NullPointerException("No blocks to send");
 		}

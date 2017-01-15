@@ -39,7 +39,7 @@ public class WelcomeRequest extends Request<Version> {
 		Log.info("Connected correctly with " + source_node);
 	}
 	
-	public ArrayList<RequestBlock> createRequest(Version version, Node dest_node) {
+	public ArrayList<RequestBlock> createRequest(Version version) {
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), version.toString()));
 	}
 	

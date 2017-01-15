@@ -44,7 +44,7 @@ public class RequestHandler {
 		addRequest(new HelloRequest(pool_manager));
 		addRequest(new WelcomeRequest(pool_manager));
 		addRequest(new DisconnectRequest(pool_manager));
-		addRequest(new NodeListRequest(pool_manager));
+		addRequest(new NodelistRequest(pool_manager));
 		addRequest(new PingRequest(pool_manager));
 		addRequest(new PongRequest(pool_manager));
 	}

@@ -34,11 +34,11 @@ import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 import hd3gtv.internaltaskqueue.ParametedProcedure;
 
-public class NodeListRequest extends Request<Void> {
+public class NodelistRequest extends Request<Void> {
 	
-	private static Logger log = Logger.getLogger(NodeListRequest.class);
+	private static Logger log = Logger.getLogger(NodelistRequest.class);
 	
-	public NodeListRequest(PoolManager pool_manager) {
+	public NodelistRequest(PoolManager pool_manager) {
 		super(pool_manager);
 	}
 	
@@ -124,7 +124,7 @@ public class NodeListRequest extends Request<Void> {
 		
 	}
 	
-	public ArrayList<RequestBlock> createRequest(Void opt, Node dest_node) {// TODO call regulary
+	public ArrayList<RequestBlock> createRequest(Void opt) {
 		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), pool_manager.getNodeList().makeAutodiscoverList().toString()));
 	}
 	
