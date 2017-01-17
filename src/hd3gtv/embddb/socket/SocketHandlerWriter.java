@@ -41,7 +41,7 @@ class SocketHandlerWriter implements SocketHandler {
 	
 	public void failed(Throwable e, ChannelBucket bucket) {
 		log.error("Channel " + bucket + " failed", e);
-		bucket.close();
+		bucket.close(NodeCloseReason.SOCKET_HANDLER_EXCEPTION, getClass());
 	}
 	
 }

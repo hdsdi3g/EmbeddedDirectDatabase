@@ -22,6 +22,7 @@ import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
+import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 
@@ -39,7 +40,7 @@ public class DisconnectRequest extends Request<Void> {
 	
 	public void onRequest(ArrayList<RequestBlock> blocks, Node node) {
 		log.info("Distant node " + node + " ask to to close");
-		node.getChannelbucket().close();
+		node.getChannelbucket().close(NodeCloseReason.EXTERNAL_REQUEST_DISCONNECT, getClass());
 	}
 	
 	public ArrayList<RequestBlock> createRequest(Void options) {

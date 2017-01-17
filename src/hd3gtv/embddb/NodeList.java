@@ -34,6 +34,7 @@ import hd3gtv.embddb.dialect.HelloRequest;
 import hd3gtv.embddb.dialect.NodelistRequest;
 import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
+import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.InteractiveConsoleMode;
 import hd3gtv.internaltaskqueue.ActivityScheduledAction;
@@ -268,7 +269,7 @@ public class NodeList {
 				if (param.startsWith("rm")) {
 					node.sendRequest(DisconnectRequest.class, null);
 				} else if (param.startsWith("close")) {
-					node.getChannelbucket().close();
+					node.getChannelbucket().close(NodeCloseReason.USER_CONSOLE_ORDER, getClass());
 					remove(node);
 				} else if (param.startsWith("isopen")) {
 					System.out.println("Is now open: " + node.isOpenSocket());

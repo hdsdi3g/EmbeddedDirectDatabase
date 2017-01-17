@@ -86,18 +86,19 @@ public class RequestHandler {
 	}
 	
 	public void onReceviedNewBlocks(ArrayList<RequestBlock> blocks, InetAddress source, Node node) throws WantToCloseLink {
+		String name = blocks.get(0).getName();
+		
 		if (log.isTraceEnabled()) {
 			AtomicInteger all_size = new AtomicInteger(0);
 			blocks.forEach(block -> {
 				all_size.addAndGet(block.getLen());
 			});
 			if (blocks.size() == 1) {
-				log.trace("Get from " + source + " " + all_size.get() + " bytes of datas on 1 block.");
+				log.trace("Get " + name + " from " + source + " " + all_size.get() + " bytes of datas on 1 block.");
 			} else {
-				log.trace("Get from " + source + " " + all_size.get() + " bytes of datas on " + blocks.size() + " blocks.");
+				log.trace("Get " + name + " from " + source + " " + all_size.get() + " bytes of datas on " + blocks.size() + " blocks.");
 			}
 		}
-		String name = blocks.get(0).getName();
 		
 		if (requests.containsKey(name) == false) {
 			log.error("Can't handle block name " + name + " from " + node);

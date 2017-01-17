@@ -39,6 +39,7 @@ import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.dialect.ErrorReturn;
 import hd3gtv.embddb.dialect.PingRequest;
 import hd3gtv.embddb.dialect.Request;
+import hd3gtv.embddb.dialect.WantToCloseLink;
 import hd3gtv.embddb.tools.Hexview;
 import hd3gtv.internaltaskqueue.ActivityScheduledAction;
 import hd3gtv.internaltaskqueue.Procedure;
@@ -134,7 +135,7 @@ public class Node {
 			return socket_addr.getHostString();
 		}
 		
-		public void close() {
+		public void close(NodeCloseReason reason, Class<?> by) {
 			buffer.clear();
 			if (channel.isOpen()) {
 				try {
@@ -145,6 +146,10 @@ public class Node {
 				}
 			}
 			pool_manager.getNodeList().remove(referer);
+			
+			if (log.isDebugEnabled()) {
+				log.debug("Want close node, by " + by.getSimpleName() + ", because: " + reason.name());
+			}
 		}
 		
 		public void dump(String text) {
@@ -195,9 +200,23 @@ public class Node {
 		public void doProcessReceviedDatas() throws Exception {
 			final byte[] datas = decrypt();
 			pool_manager.getQueue().addToQueue(() -> {
-				pool_manager.getRequestHandler().onReceviedNewBlocks(pool_manager.getProtocol().decompressBlocks(datas), socket_addr.getAddress(), referer);
+				ArrayList<RequestBlock> blocks = null;
+				try {
+					blocks = pool_manager.getProtocol().decompressBlocks(datas);
+				} catch (IOException e) {
+					log.error("Can't extract sended blocks " + referer.toString(), e);
+					close(NodeCloseReason.ERROR_DURING_PROCESS_REQUEST, referer.getClass());
+					return;
+				}
+				pool_manager.getRequestHandler().onReceviedNewBlocks(blocks, socket_addr.getAddress(), referer);
 			}, wtcl -> {
-				close();
+				if (wtcl instanceof WantToCloseLink) {
+					log.debug("Handler want to close link");
+					close(NodeCloseReason.INTERNAL_REQUEST_DISCONNECT, referer.getClass());
+					return;
+				}
+				log.error("Can process request handler", wtcl);
+				close(NodeCloseReason.ERROR_DURING_PROCESS_REQUEST, referer.getClass());
 			});
 		}
 		
@@ -259,7 +278,7 @@ public class Node {
 	public void onErrorReturnFromNode(ErrorReturn error) {
 		if (error.isDisconnectme()) {
 			log.warn("Node (" + error.getNode() + ") say: \"" + error.getMessage() + "\"" + " by " + error.getCaller() + " at " + new Date(error.getDate()) + " and want to disconnect");
-			channelbucket.close();
+			channelbucket.close(NodeCloseReason.EXTERNAL_ERROR_REQUEST_DISCONNECT, getClass());
 		} else {
 			log.info("Node (" + error.getNode() + ") say: \"" + error.getMessage() + "\"" + " by " + error.getCaller() + " at " + new Date(error.getDate()));
 		}
@@ -288,7 +307,7 @@ public class Node {
 			}).collect(Collectors.toList());
 			
 			log.error("Can't send datas to " + toString() + " > " + block_names);
-			channelbucket.close();
+			channelbucket.close(NodeCloseReason.ERROR_DURING_SENDING, getClass());
 		}
 	}
 	
@@ -410,7 +429,7 @@ public class Node {
 		if ((server_delta_time != new_delay) && (Math.abs(server_delta_time) > MAX_TOLERANCE_DELTA_TIME_WITH_SERVER)) {
 			log.warn(
 					"Big delay with server " + toString() + ": " + server_delta_time + " ms. Please check the NTP setup with this host and the server ! In the meantime, this node will be disconned.");
-			channelbucket.close();
+			channelbucket.close(NodeCloseReason.INVALID_NODE_DATE, getClass());
 			return false;
 		}
 		return true;

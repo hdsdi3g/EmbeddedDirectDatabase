@@ -57,6 +57,9 @@ public final class RequestBlock {
 	
 	public RequestBlock(String name, String datas) {
 		this(name, datas.getBytes(Protocol.UTF8), System.currentTimeMillis());
+		if (log.isTraceEnabled()) {
+			log.trace("Add string datas to block " + name + " \"" + datas + "\"");
+		}
 	}
 	
 	void exportToZip(ZipOutputStream zipdatas) throws IOException {

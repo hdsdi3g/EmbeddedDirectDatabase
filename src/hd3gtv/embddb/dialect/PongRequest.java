@@ -24,6 +24,7 @@ import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
+import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 
@@ -46,7 +47,7 @@ public class PongRequest extends Request<Void> {
 			source_node.setUUIDRef(current_uuid);
 		} catch (IOException e) {
 			log.error("Node has changed... disconnect it", e);
-			source_node.getChannelbucket().close();
+			source_node.getChannelbucket().close(NodeCloseReason.INVALID_UUID, getClass());
 		}
 	}
 	

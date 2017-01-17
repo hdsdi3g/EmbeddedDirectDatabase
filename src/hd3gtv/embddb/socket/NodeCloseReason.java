@@ -11,18 +11,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 6 janv. 2017
+ * Copyright (C) hdsdi3g for hd3g.tv 2017
  * 
 */
 package hd3gtv.embddb.socket;
 
-import hd3gtv.embddb.socket.Node.ChannelBucket;
+public enum NodeCloseReason {
+	
+	EXTERNAL_REQUEST_DISCONNECT, INVALID_NODE_DATE, EXTERNAL_ERROR_REQUEST_DISCONNECT, INTERNAL_REQUEST_DISCONNECT, USER_CONSOLE_ORDER, SOCKET_HANDLER, SOCKET_HANDLER_EXCEPTION, INVALID_UUID, ERROR_DURING_SENDING, ERROR_DURING_PROCESS_REQUEST, EMPTY_SOCKET_DATAS;
 
-class SocketHandlerWriterCloser extends SocketHandlerWriter {
-	
-	public void completed(Integer size, ChannelBucket bucket) {
-		showLogs(size, bucket);
-		bucket.close(NodeCloseReason.SOCKET_HANDLER, getClass());
-	}
-	
 }
