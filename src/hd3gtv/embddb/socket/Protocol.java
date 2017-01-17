@@ -100,18 +100,22 @@ public class Protocol {
 		}
 	}
 	
-	public void encrypt(ByteBuffer buffer) throws GeneralSecurityException {
-		encryptDecrypt(buffer, Cipher.ENCRYPT_MODE);
+	public ByteBuffer encrypt(ByteBuffer buffer) throws GeneralSecurityException {
+		return encryptDecrypt(buffer, Cipher.ENCRYPT_MODE);
 	}
 	
-	public void decrypt(ByteBuffer buffer) throws GeneralSecurityException {
-		encryptDecrypt(buffer, Cipher.DECRYPT_MODE);
+	public ByteBuffer decrypt(ByteBuffer buffer) throws GeneralSecurityException {
+		return encryptDecrypt(buffer, Cipher.DECRYPT_MODE);
 	}
 	
-	private void encryptDecrypt(ByteBuffer buffer, int mode) throws GeneralSecurityException {
+	private ByteBuffer encryptDecrypt(ByteBuffer buffer, int mode) throws GeneralSecurityException {
+		ByteBuffer out = ByteBuffer.allocateDirect(BUFFER_SIZE);
+		
 		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
 		cipher.init(mode, skeySpec, salt);
-		cipher.doFinal(buffer.duplicate(), buffer);
+		cipher.doFinal(buffer, out);
+		buffer.clear();
+		return out;
 	}
 	
 	public ArrayList<RequestBlock> decompressBlocks(byte[] uncrypted_content) throws IOException {

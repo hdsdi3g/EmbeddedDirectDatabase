@@ -22,7 +22,6 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.ReadPendingException;
-import java.nio.channels.spi.AsynchronousChannelProvider;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Date;
@@ -55,8 +54,13 @@ public class Node {
 	
 	private UUID uuid_ref;
 	private long server_delta_time;
+	private SocketProvider provider;
 	
-	public Node(PoolManager pool_manager, InetSocketAddress socket_addr, AsynchronousSocketChannel channel) {
+	public Node(SocketProvider provider, PoolManager pool_manager, InetSocketAddress socket_addr, AsynchronousSocketChannel channel) {
+		this.provider = provider;
+		if (provider == null) {
+			throw new NullPointerException("\"provider\" can't to be null");
+		}
 		this.pool_manager = pool_manager;
 		if (pool_manager == null) {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
@@ -82,7 +86,7 @@ public class Node {
 	}
 	
 	public String toString() {
-		return getSocketAddr().getHostName() + ":" + getSocketAddr().getPort() + " [" + channelbucket.getProviderClass().getSimpleName() + "]";
+		return getSocketAddr().getHostName() + ":" + getSocketAddr().getPort() + " [" + provider.getClass().getSimpleName() + "]";
 	}
 	
 	public ChannelBucket getChannelbucket() {
@@ -91,17 +95,13 @@ public class Node {
 	
 	public class ChannelBucket {
 		private Node referer;
-		private ByteBuffer buffer;
+		private volatile ByteBuffer buffer;
 		private AsynchronousSocketChannel channel;
 		
 		private ChannelBucket(Node referer, AsynchronousSocketChannel channel) {
 			this.buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
 			this.channel = channel;
 			this.referer = referer;
-		}
-		
-		public Class<? extends AsynchronousChannelProvider> getProviderClass() {
-			return channel.provider().getClass();
 		}
 		
 		public boolean isOpen() {
@@ -156,7 +156,7 @@ public class Node {
 		
 		private byte[] decrypt() throws GeneralSecurityException {
 			buffer.flip();
-			pool_manager.getProtocol().decrypt(buffer);
+			buffer = pool_manager.getProtocol().decrypt(buffer);// XXX
 			buffer.flip();
 			byte[] content = new byte[buffer.remaining()];
 			buffer.get(content, 0, content.length);
@@ -168,7 +168,7 @@ public class Node {
 			buffer.clear();
 			buffer.put(data);
 			buffer.flip();
-			pool_manager.getProtocol().encrypt(buffer);
+			buffer = pool_manager.getProtocol().encrypt(buffer);
 		}
 		
 		/**
@@ -406,7 +406,7 @@ public class Node {
 		if (socket_addr.getPort() != pool_manager.getProtocol().getDefaultTCPPort()) {
 			host = host + ":" + socket_addr.getPort();
 		}
-		String provider = channelbucket.getProviderClass().getSimpleName();
+		String provider = this.provider.getClass().getSimpleName();
 		String isopen = "open";
 		if (isOpenSocket() == false) {
 			isopen = "CLOSE";

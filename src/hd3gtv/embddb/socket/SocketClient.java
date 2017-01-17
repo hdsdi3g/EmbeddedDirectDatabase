@@ -26,7 +26,7 @@ import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.PoolManager;
 
-public class SocketClient {
+public class SocketClient implements SocketProvider {
 	
 	private static final Logger log = Logger.getLogger(SocketClient.class);
 	
@@ -52,7 +52,7 @@ public class SocketClient {
 		
 		channel = AsynchronousSocketChannel.open();
 		
-		channel.connect(server, new Node(pool_manager, server, channel), handler_connect);
+		channel.connect(server, new Node(this, pool_manager, server, channel), handler_connect);
 	}
 	
 	private class SocketConnect implements CompletionHandler<Void, Node> {

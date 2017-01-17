@@ -27,7 +27,7 @@ import org.apache.log4j.Logger;
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.tools.StoppableThread;
 
-public class SocketServer extends StoppableThread {
+public class SocketServer extends StoppableThread implements SocketProvider {
 	
 	private static final Logger log = Logger.getLogger(SocketServer.class);
 	
@@ -83,7 +83,7 @@ public class SocketServer extends StoppableThread {
 		while (isWantToRun()) {
 			try {
 				AsynchronousSocketChannel channel = server.accept().get();
-				Node node = new Node(pool_manager, (InetSocketAddress) channel.getRemoteAddress(), channel);
+				Node node = new Node(this, pool_manager, (InetSocketAddress) channel.getRemoteAddress(), channel);
 				log.info("Client connect " + node);
 				node.getChannelbucket().asyncRead();
 				pool_manager.getNodeList().add(node);
