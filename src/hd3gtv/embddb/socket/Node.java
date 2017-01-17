@@ -49,7 +49,7 @@ public class Node {
 	private static final Logger log = Logger.getLogger(Node.class);
 	
 	private PoolManager pool_manager;
-	private ChannelBucket channelbucket;
+	private final ChannelBucket channelbucket;
 	private InetSocketAddress socket_addr;
 	
 	private UUID uuid_ref;
@@ -94,9 +94,9 @@ public class Node {
 	}
 	
 	public class ChannelBucket {
-		private Node referer;
-		private volatile ByteBuffer buffer;
-		private AsynchronousSocketChannel channel;
+		private final Node referer;
+		private final ByteBuffer buffer;
+		private final AsynchronousSocketChannel channel;
 		
 		private ChannelBucket(Node referer, AsynchronousSocketChannel channel) {
 			this.buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
@@ -156,19 +156,37 @@ public class Node {
 		
 		private byte[] decrypt() throws GeneralSecurityException {
 			buffer.flip();
-			buffer = pool_manager.getProtocol().decrypt(buffer);// XXX
-			buffer.flip();
 			byte[] content = new byte[buffer.remaining()];
+			if (log.isTraceEnabled()) {
+				log.trace("Prepare " + content.length + " bytes to decrypt");
+			}
+			
 			buffer.get(content, 0, content.length);
 			buffer.clear();
-			return content;
+			
+			byte[] result = pool_manager.getProtocol().decrypt(content, 0, content.length);
+			if (log.isTraceEnabled()) {
+				log.trace("Get " + result.length + " bytes decrypted");
+			}
+			
+			return result;
 		}
 		
 		private void encrypt(byte[] data) throws GeneralSecurityException {
+			if (log.isTraceEnabled()) {
+				log.trace("Prepare " + data.length + " bytes to encrypt");
+			}
+			
 			buffer.clear();
-			buffer.put(data);
+			
+			byte[] result = pool_manager.getProtocol().encrypt(data, 0, data.length);
+			buffer.put(result);
+			
 			buffer.flip();
-			buffer = pool_manager.getProtocol().encrypt(buffer);
+			
+			if (log.isTraceEnabled()) {
+				log.trace("Get " + result.length + " bytes encrypted");
+			}
 		}
 		
 		/**

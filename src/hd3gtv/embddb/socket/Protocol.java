@@ -21,7 +21,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -100,22 +99,18 @@ public class Protocol {
 		}
 	}
 	
-	public ByteBuffer encrypt(ByteBuffer buffer) throws GeneralSecurityException {
-		return encryptDecrypt(buffer, Cipher.ENCRYPT_MODE);
+	public byte[] encrypt(byte[] cleared_datas, int pos, int len) throws GeneralSecurityException {
+		return encryptDecrypt(cleared_datas, pos, len, Cipher.ENCRYPT_MODE);
 	}
 	
-	public ByteBuffer decrypt(ByteBuffer buffer) throws GeneralSecurityException {
-		return encryptDecrypt(buffer, Cipher.DECRYPT_MODE);
+	public byte[] decrypt(byte[] crypted_datas, int pos, int len) throws GeneralSecurityException {
+		return encryptDecrypt(crypted_datas, pos, len, Cipher.DECRYPT_MODE);
 	}
 	
-	private ByteBuffer encryptDecrypt(ByteBuffer buffer, int mode) throws GeneralSecurityException {
-		ByteBuffer out = ByteBuffer.allocateDirect(BUFFER_SIZE);
-		
+	private byte[] encryptDecrypt(byte[] datas, int pos, int len, int mode) throws GeneralSecurityException {
 		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
 		cipher.init(mode, skeySpec, salt);
-		cipher.doFinal(buffer, out);
-		buffer.clear();
-		return out;
+		return cipher.doFinal(datas, pos, len);
 	}
 	
 	public ArrayList<RequestBlock> decompressBlocks(byte[] uncrypted_content) throws IOException {
