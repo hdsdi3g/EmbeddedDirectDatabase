@@ -319,10 +319,8 @@ public class Node {
 			throw new IOException("Invalid UUID for " + toString() + ", it's the same as local manager ! (" + uuid_ref.toString() + ")");
 		}
 		if (uuid_ref == null) {
-			synchronized (uuid_ref) {
-				uuid_ref = uuid;
-				pool_manager.getNodeList().updateUUID(this);
-			}
+			uuid_ref = uuid;
+			pool_manager.getNodeList().updateUUID(this);
 			log.debug("Set UUID for " + toString() + ", " + uuid);
 		}
 		check(uuid);
