@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.log4j.Logger;
 
 import hd3gtv.internaltaskqueue.ParametedProcedure;
+import hd3gtv.tools.TableList;
 
 public class InteractiveConsoleMode {
 	
@@ -49,16 +50,15 @@ public class InteractiveConsoleMode {
 			System.out.println("Show help:");
 			
 			HashSet<Action> actual_actions = new HashSet<>(controller.size());
+			
+			TableList table = new TableList(4);
 			controller.forEach((order, action) -> {
 				if (actual_actions.contains(action) == false) {
 					actual_actions.add(action);
-					System.out.print(" - ");
-					System.out.print(order);
-					System.out.print("\t");
-					System.out.print(action.toString());
-					System.out.println();
+					table.addRow("- " + order, action.name, action.description, action.creator.getSimpleName());
 				}
 			});
+			table.print();
 			System.out.println();
 			System.out.println("If you prefix the action by \"l\" like \"l action\", it will be execute in loop.");
 			System.out.println();
@@ -91,17 +91,6 @@ public class InteractiveConsoleMode {
 			if (creator == null) {
 				throw new NullPointerException("\"creator\" can't to be null");
 			}
-		}
-		
-		public String toString() {
-			StringBuilder sb = new StringBuilder();
-			sb.append(name);
-			sb.append(", ");
-			sb.append(description);
-			sb.append(" (by ");
-			sb.append(creator.getSimpleName());
-			sb.append(")");
-			return sb.toString();
 		}
 		
 	}

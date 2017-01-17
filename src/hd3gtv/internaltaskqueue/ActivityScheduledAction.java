@@ -22,11 +22,19 @@ public interface ActivityScheduledAction<T> {
 	
 	public Procedure getRegularScheduledAction();
 	
-	public long getScheduledActionInitialDelay();
+	public String getScheduledActionName();
 	
-	public long getScheduledActionPeriod();
+	public default long getScheduledActionInitialDelay() {
+		return 0;
+	}
 	
-	public TimeUnit getScheduledActionPeriodUnit();
+	public default long getScheduledActionPeriod() {
+		return 60;
+	}
+	
+	public default TimeUnit getScheduledActionPeriodUnit() {
+		return TimeUnit.SECONDS;
+	}
 	
 	/**
 	 * @return false if this object must don't keep scheduled.

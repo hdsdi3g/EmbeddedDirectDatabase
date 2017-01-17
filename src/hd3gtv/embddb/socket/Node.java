@@ -457,12 +457,13 @@ public class Node {
 		table.addRow(host, provider, isopen, deltatime, uuid);
 	}
 	
-	/**
-	 * @return check if the socket is open and do ping.
-	 */
 	public ActivityScheduledAction<Node> getScheduledAction() {
 		Node current_node = this;
 		return new ActivityScheduledAction<Node>() {
+			
+			public String getScheduledActionName() {
+				return "Check if the socket is open and do pings";
+			}
 			
 			public boolean onScheduledActionError(Exception e) {
 				log.warn("Can't execute node scheduled actions");
@@ -485,7 +486,7 @@ public class Node {
 			public Procedure getRegularScheduledAction() {
 				return () -> {
 					current_node.channelbucket.checkIfOpen();
-					pool_manager.getRequestHandler().getRequestByClass(PingRequest.class).sendRequest(null, current_node);
+					pool_manager.getRequestHandler().getRequestByClass(PingRequest.class).sendRequest(null, current_node);// TODO is stared ?
 				};
 			}
 		};

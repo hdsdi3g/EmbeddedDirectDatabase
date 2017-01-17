@@ -21,8 +21,8 @@ import java.util.LinkedList;
 import java.util.NoSuchElementException;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
-import hd3gtv.embddb.tools.InteractiveConsoleMode;
 import hd3gtv.tools.StoppableThread;
 
 public class ITQueue {
@@ -241,28 +241,27 @@ public class ITQueue {
 		
 	}
 	
-	public void setConsole(InteractiveConsoleMode console) {
-		if (console == null) {
-			throw new NullPointerException("\"console\" can't to be null");
-		}
-		
-		console.addOrder("ql", "Queue list", "Display actual queue list", getClass(), param -> {
-			if (pending_tasks.isEmpty()) {
-				System.out.println("No waiting task to display in queue.");
+	public boolean isEmpty() {
+		return pending_tasks.isEmpty();
+	}
+	
+	public int size() {
+		return pending_tasks.size();
+	}
+	
+	public Stream<String> getAllpendingTaskToString() {
+		return pending_tasks.stream().map(task -> {
+			return task.toString();
+		});
+	}
+	
+	public Stream<String> getAllExecutorsStatus() {
+		return executors.stream().map(ex -> {
+			if (ex.selected_task != null) {
+				return ex.getName() + ": " + ex.selected_task;
 			} else {
-				System.out.println("Display " + pending_tasks.size() + " waiting tasks");
-				pending_tasks.forEach(pt -> {
-					System.out.println(pt.toString());
-				});
+				return ex.getName() + ": " + "Not in processing.";
 			}
-			
-			executors.forEach(ex -> {
-				if (ex.selected_task != null) {
-					System.out.println(ex.getName() + ": " + ex.selected_task);
-				} else {
-					System.out.println(ex.getName() + ": " + "Not in processing.");
-				}
-			});
 		});
 	}
 	

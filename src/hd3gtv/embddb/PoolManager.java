@@ -40,6 +40,7 @@ import hd3gtv.internaltaskqueue.ITQueue;
 import hd3gtv.mydmam.MyDMAM;
 import hd3gtv.tools.AddressMaster;
 import hd3gtv.tools.GsonIgnoreStrategy;
+import hd3gtv.tools.TableList;
 
 public class PoolManager {
 	
@@ -59,6 +60,8 @@ public class PoolManager {
 	private AddressMaster addr_master;
 	
 	private final UUID uuid_ref;
+	
+	private ActivityScheduler<Node> node_scheduler;
 	private ActivityScheduler<NodeList> nodelist_scheduler;
 	
 	public PoolManager(ITQueue queue, String master_password_key) throws GeneralSecurityException, IOException {
@@ -82,23 +85,140 @@ public class PoolManager {
 		if (queue == null) {
 			throw new NullPointerException("\"queue\" can't to be null");
 		}
-		queue.setConsole(console);
 		
 		node_list = new NodeList(this);
-		node_list.setConsole(console);
-		
 		uuid_ref = UUID.randomUUID();
 		addr_master = new AddressMaster();
-		
 		protocol = new Protocol(master_password_key);
-		
 		shutdown_hook = new ShutdownHook();
-		
 		request_handler = new RequestHandler(this);
 		
 		nodelist_scheduler = new ActivityScheduler<>();
-		nodelist_scheduler.setConsole(console);
 		nodelist_scheduler.add(node_list, node_list.getScheduledAction());
+		node_scheduler = new ActivityScheduler<>();
+		
+		console.addOrder("ql", "Queue list", "Display actual queue list", getClass(), param -> {
+			if (queue.isEmpty()) {
+				System.out.println("No waiting task to display in queue.");
+			} else {
+				System.out.println("Display " + queue.size() + " waiting tasks");
+				queue.getAllpendingTaskToString().forEach(t -> {
+					System.out.println(t);
+				});
+			}
+			queue.getAllExecutorsStatus().forEach(ex -> {
+				System.out.println(ex);
+			});
+		});
+		
+		/*			console.addOrder("nl", "Node list", "Display actual connected node", getClass(), param -> {
+						TableList table = new TableList(5);
+						nodes.forEach(node -> {
+							node.addToActualStatus(table);
+						});
+						table.print();
+					});
+					
+					console.addOrder("node", "Node action", "Do action to a node", getClass(), param -> {
+						if (param == null) {
+							System.out.println("Usage:");
+							System.out.println("node add address[:port]");
+							System.out.println("   for add a new node (after a valid connection)");
+							System.out.println("node rm address[:port]");
+							System.out.println("   remove a node with protocol (to a disconnect request)");
+							System.out.println("node close address[:port]");
+							System.out.println("   for disconnect directly a node");
+							System.out.println("node isopen address[:port]");
+							System.out.println("   for force to check the socket state (open or close)");
+							return;
+						}
+						
+						InetSocketAddress addr = parseAddressFromCmdConsole(param);
+						
+						if (addr == null) {
+							System.out.println("Can't get address from ”" + param + "”");
+							return;
+						}
+						
+						if (param.startsWith("add")) {
+							pool_manager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
+								
+								public void onNewConnectedNode(Node node) {
+									System.out.println("Node " + node + " is added sucessfully");
+								}
+								
+								public void onLocalServerConnection(InetSocketAddress server) {
+									System.out.println("You can't add local server to new node: " + server);
+								}
+								
+								public void alreadyConnectedNode(Node node) {
+									System.out.println("You can't add this node " + node + " because it's already added");
+								}
+							});
+						} else if (nodes_by_addr.containsKey(addr)) {
+							Node node = nodes_by_addr.get(addr);
+							if (param.startsWith("rm")) {
+								node.sendRequest(DisconnectRequest.class, null);
+							} else if (param.startsWith("close")) {
+								node.getChannelbucket().close(NodeCloseReason.USER_CONSOLE_ORDER, getClass());
+								remove(node);
+							} else if (param.startsWith("isopen")) {
+								System.out.println("Is now open: " + node.isOpenSocket());
+							} else {
+								System.out.println("Order ”" + param + "” is unknow");
+							}
+						} else {
+							System.out.println("Can't found node " + addr + " in current list. Please check with nl command");
+						}
+					});
+					
+					console.addOrder("gcnodes", "Garbage collector node list", "Purge closed nodes", getClass(), param -> {
+						purgeClosedNodes();
+					});
+					console.addOrder("closenodes", "Close all nodes", "Force to disconnect all connected nodes", getClass(), param -> {
+						sayToAllNodesToDisconnectMe(false);
+					});
+		*/
+		
+		console.addOrder("sch", "Activity scheduler", "Display the activated regular task list", getClass(), param -> {
+			if (node_scheduler.isEmpty()) {
+				System.out.println("No regular tasks to display for nodes.");
+			} else {
+				System.out.println("Display " + node_scheduler.size() + " regular nodes task");
+				TableList table = new TableList(3);
+				node_scheduler.getAllScheduledTasks(table);
+				table.print();
+			}
+			System.out.println("");
+			
+			if (nodelist_scheduler.isEmpty()) {
+				System.out.println("No regular tasks to display for nodelist.");
+			} else {
+				System.out.println("Display " + nodelist_scheduler.size() + " regular nodelist task");
+				TableList table = new TableList(3);
+				nodelist_scheduler.getAllScheduledTasks(table);
+				table.print();
+			}
+			System.out.println("");
+		});
+		
+		// TODO serv console
+		// local_servers.forEach(action);
+		/*console.addOrder("srv", "Server status", "Display the server status", getClass(), param -> {
+			if (local_server.isOpen()) {
+				System.out.println("Server is open on " + local_server.getListen().getHostString() + ":" + local_server.getListen().getPort());
+			} else {
+				System.out.println("Server is closed");
+			}
+		});
+		
+		console.addOrder("closesrv", "Close server", "Close this local server", getClass(), param -> {
+			if (local_server.isOpen() == false) {
+				System.out.println("Server is already closed");
+			}
+			local_server.waitToStop();
+		})*/;
+		
 	}
 	
 	public UUID getUUIDRef() {
@@ -111,6 +231,10 @@ public class PoolManager {
 	
 	public AddressMaster getAddressMaster() {
 		return addr_master;
+	}
+	
+	public ActivityScheduler<Node> getNode_scheduler() {
+		return node_scheduler;
 	}
 	
 	public Gson getSimpleGson() {
@@ -133,23 +257,6 @@ public class PoolManager {
 		});
 		
 		log.info("Start local server on " + logresult);
-		
-		// TODO serv console
-		// local_servers.forEach(action);
-		/*console.addOrder("srv", "Server status", "Display the server status", getClass(), param -> {
-			if (local_server.isOpen()) {
-				System.out.println("Server is open on " + local_server.getListen().getHostString() + ":" + local_server.getListen().getPort());
-			} else {
-				System.out.println("Server is closed");
-			}
-		});
-		
-		console.addOrder("closesrv", "Close server", "Close this local server", getClass(), param -> {
-			if (local_server.isOpen() == false) {
-				System.out.println("Server is already closed");
-			}
-			local_server.waitToStop();
-		})*/;
 		
 		Runtime.getRuntime().addShutdownHook(shutdown_hook);
 	}
@@ -208,9 +315,9 @@ public class PoolManager {
 		} else {
 			new SocketClient(this, server, n -> {
 				if (node_list.add(n)) {
-					callback_on_connection.alreadyConnectedNode(node);
+					callback_on_connection.onNewConnectedNode(n);
 				} else {
-					callback_on_connection.onNewConnectedNode(node_list.get(server));
+					callback_on_connection.alreadyConnectedNode(node_list.get(server));
 				}
 			});
 		}
@@ -246,6 +353,28 @@ public class PoolManager {
 		public void run() {
 			closeAll();
 		}
+	}
+	
+	/**
+	 * @param param like "action addr:port"
+	 */
+	private InetSocketAddress parseAddressFromCmdConsole(String param) {
+		int first_space = param.indexOf(" ");
+		if (first_space < 1) {
+			return null;
+		}
+		String full_addr = param.substring(first_space).trim();
+		int port = protocol.getDefaultTCPPort();
+		
+		int colon = full_addr.lastIndexOf(":");
+		if (colon > 1) {
+			try {
+				port = Integer.parseInt(full_addr.substring(colon + 1));
+				full_addr = full_addr.substring(0, colon);
+			} catch (NumberFormatException e) {
+			}
+		}
+		return new InetSocketAddress(full_addr, port);
 	}
 	
 }
