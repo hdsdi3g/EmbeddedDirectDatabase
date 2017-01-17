@@ -226,7 +226,7 @@ public class NodeList {
 			}
 			
 			public long getScheduledActionInitialDelay() {
-				return TimeUnit.SECONDS.toMillis(60);
+				return 10;
 			}
 			
 			public Procedure getRegularScheduledAction() {

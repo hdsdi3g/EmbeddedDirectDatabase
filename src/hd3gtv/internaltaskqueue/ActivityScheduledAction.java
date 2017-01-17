@@ -24,10 +24,16 @@ public interface ActivityScheduledAction<T> {
 	
 	public String getScheduledActionName();
 	
+	/**
+	 * @return in TimeUnit
+	 */
 	public default long getScheduledActionInitialDelay() {
 		return 0;
 	}
 	
+	/**
+	 * @return in TimeUnit
+	 */
 	public default long getScheduledActionPeriod() {
 		return 60;
 	}

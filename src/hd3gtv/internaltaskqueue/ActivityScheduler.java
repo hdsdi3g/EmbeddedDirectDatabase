@@ -24,6 +24,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
+import hd3gtv.mydmam.Loggers;
 import hd3gtv.tools.TableList;
 
 public class ActivityScheduler<T> {
@@ -70,7 +71,7 @@ public class ActivityScheduler<T> {
 		ScheduledFuture<?> future;
 		T reference;
 		ActivityScheduledAction<T> action;
-		
+		long last_exec_date = 0;
 		long period;
 		
 		RegularTask(T reference, ActivityScheduledAction<T> action) {
@@ -103,6 +104,7 @@ public class ActivityScheduler<T> {
 				log.debug("Do regular process \"" + action.getScheduledActionName() + "\" for " + reference.getClass().getSimpleName());
 				try {
 					procedure.process();
+					last_exec_date = System.currentTimeMillis();
 				} catch (Exception e) {
 					if (action != null) {
 						if (action.onScheduledActionError(e)) {
@@ -139,12 +141,22 @@ public class ActivityScheduler<T> {
 	}
 	
 	/**
-	 * @param table len must equals 3
+	 * @param table len must equals 5
 	 */
 	public void getAllScheduledTasks(TableList table) {
-		table.addRow("Name", "Reference", "Period (sec)");
+		table.addRow("Status", "Name", "Reference", "Period (sec)", "Last executed");
 		regular_tasks.forEach(task -> {
-			table.addRow(task.action.getScheduledActionName(), task.reference.getClass().getName(), String.valueOf((float) task.period / 1000f));
+			String last = "(never)";
+			if (task.last_exec_date > 0) {
+				last = Loggers.dateLog(task.last_exec_date);
+			}
+			if (task.future.isCancelled()) {
+				table.addRow("CANCELED", task.action.getScheduledActionName(), task.reference.getClass().getName(), String.valueOf((float) task.period / 1000f), last);
+			} else if (task.future.isDone()) {
+				table.addRow("DONE", task.action.getScheduledActionName(), task.reference.getClass().getName(), String.valueOf((float) task.period / 1000f), last);
+			} else {
+				table.addRow("WAIT", task.action.getScheduledActionName(), task.reference.getClass().getName(), String.valueOf((float) task.period / 1000f), last);
+			}
 		});
 	}
 	

@@ -185,7 +185,7 @@ public class PoolManager {
 				System.out.println("No regular tasks to display for nodes.");
 			} else {
 				System.out.println("Display " + node_scheduler.size() + " regular nodes task");
-				TableList table = new TableList(3);
+				TableList table = new TableList(5);
 				node_scheduler.getAllScheduledTasks(table);
 				table.print();
 			}
@@ -195,7 +195,7 @@ public class PoolManager {
 				System.out.println("No regular tasks to display for nodelist.");
 			} else {
 				System.out.println("Display " + nodelist_scheduler.size() + " regular nodelist task");
-				TableList table = new TableList(3);
+				TableList table = new TableList(5);
 				nodelist_scheduler.getAllScheduledTasks(table);
 				table.print();
 			}

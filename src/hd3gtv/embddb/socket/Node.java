@@ -480,7 +480,7 @@ public class Node {
 			}
 			
 			public long getScheduledActionInitialDelay() {
-				return 1000;
+				return 10;
 			}
 			
 			public Procedure getRegularScheduledAction() {
