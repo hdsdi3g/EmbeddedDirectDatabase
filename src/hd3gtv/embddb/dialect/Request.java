@@ -38,10 +38,16 @@ public abstract class Request<T> {
 		request_handler = pool_manager.getRequestHandler();
 	}
 	
+	/**
+	 * @return must equals to first createRequest RequestBlock.name result
+	 */
 	public abstract String getHandleName();
 	
 	public abstract void onRequest(ArrayList<RequestBlock> blocks, Node source_node);
 	
+	/**
+	 * @return first RequestBlock.name must equals to getHandleName()
+	 */
 	public abstract ArrayList<RequestBlock> createRequest(T options);
 	
 	public final void sendRequest(T options, Node dest_node) throws NullPointerException, IndexOutOfBoundsException {
@@ -56,7 +62,5 @@ public abstract class Request<T> {
 	}
 	
 	protected abstract boolean isCloseChannelRequest(T options);
-	
-	// TODO check if createRequest[0].name <=> getHandleName() before send
 	
 }

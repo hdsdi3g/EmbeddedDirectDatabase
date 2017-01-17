@@ -40,17 +40,14 @@
 
 	<!-- Personalized filter levels for some loggers -->
 	
-	<logger name="hd3gtv.embddb.network.EDDBNode">
-		<level value="DEBUG" />
-	</logger>
-	<logger name="hd3gtv.embddb.network.EDDBClient">
-		<level value="DEBUG" />
-	</logger>
-	
 	<logger name="hd3gtv">
 		<level value="TRACE" />
 	</logger>
 
+	<logger name="hd3gtv.tools">
+		<level value="INFO" />
+	</logger>
+	
 	<!-- Global/defalut definition, and level filter for some lib like Astyanax, Elasticsearch, Play... -->
 	<root>
 		<priority value="WARN" />

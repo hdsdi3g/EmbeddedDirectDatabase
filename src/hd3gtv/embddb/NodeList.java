@@ -30,6 +30,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import hd3gtv.embddb.dialect.DisconnectRequest;
+import hd3gtv.embddb.dialect.HelloRequest;
 import hd3gtv.embddb.dialect.NodelistRequest;
 import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
@@ -177,6 +178,8 @@ public class NodeList {
 			}
 			nodes.add(node);
 		}
+		
+		pool_manager.getRequestHandler().getRequestByClass(HelloRequest.class).sendRequest(null, node);
 		
 		node_scheduler.add(node, node.getScheduledAction());
 		return true;

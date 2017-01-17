@@ -345,6 +345,12 @@ public class Node {
 		JsonObject jo = new JsonObject();
 		jo.addProperty("uuid", uuid_ref.toString());
 		jo.addProperty("addr", this.socket_addr.getAddress().getHostAddress());
+		try {
+			log.debug("Local port for node " + toString() + ": " + ((InetSocketAddress) this.getChannelbucket().channel.getLocalAddress()).getPort());
+			log.debug("Remote port for node " + toString() + ": " + ((InetSocketAddress) this.getChannelbucket().channel.getRemoteAddress()).getPort());
+		} catch (IOException e) {
+			log.error("Can't get addr", e);
+		}
 		jo.addProperty("port", this.socket_addr.getPort()); // XXX port is local or distant ?!
 		return jo;
 	}

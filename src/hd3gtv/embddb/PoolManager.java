@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
+import java.util.ArrayList;
 import java.util.UUID;
 
 import org.apache.log4j.Logger;
@@ -46,7 +47,7 @@ public class PoolManager {
 	
 	private final Gson simple_gson;
 	
-	private SocketServer local_server;
+	private ArrayList<SocketServer> local_servers;
 	private RequestHandler request_handler;
 	
 	private Protocol protocol;
@@ -74,6 +75,7 @@ public class PoolManager {
 		MyDMAM.registerBaseSerializers(builder);
 		simple_gson = builder.create();
 		
+		local_servers = new ArrayList<>();
 		console = new InteractiveConsoleMode();
 		
 		this.queue = queue;
@@ -115,19 +117,26 @@ public class PoolManager {
 		return simple_gson;
 	}
 	
-	public void startServer(InetSocketAddress listen) throws IOException {
-		local_server = new SocketServer(this, listen);
+	public void startLocalServers() throws IOException {
+		ArrayList<String> logresult = new ArrayList<>();
 		
-		if (listen != null) {
-			log.info("Start local server on " + listen);
-		} else {
-			log.info("Start local server on all IP addr and for port " + protocol.getDefaultTCPPort());
-		}
-		local_server.start();
+		addr_master.getAddresses().forEach(addr -> {
+			InetSocketAddress listen = new InetSocketAddress(addr, protocol.getDefaultTCPPort());
+			try {
+				SocketServer local_server = new SocketServer(this, listen);
+				local_server.start();
+				local_servers.add(local_server);
+				logresult.add(listen.getHostString() + ":" + listen.getPort());
+			} catch (IOException e) {
+				log.error("Can't start server on " + listen.getHostString() + ":" + listen.getPort());
+			}
+		});
 		
-		Runtime.getRuntime().addShutdownHook(shutdown_hook);
+		log.info("Start local server on " + logresult);
 		
-		console.addOrder("srv", "Server status", "Display the server status", getClass(), param -> {
+		// TODO serv console
+		// local_servers.forEach(action);
+		/*console.addOrder("srv", "Server status", "Display the server status", getClass(), param -> {
 			if (local_server.isOpen()) {
 				System.out.println("Server is open on " + local_server.getListen().getHostString() + ":" + local_server.getListen().getPort());
 			} else {
@@ -140,14 +149,9 @@ public class PoolManager {
 				System.out.println("Server is already closed");
 			}
 			local_server.waitToStop();
-		});
-	}
-	
-	/**
-	 * @return null if closed
-	 */
-	public InetSocketAddress getServerListenSocketAddress() {
-		return local_server.getListen();
+		})*/;
+		
+		Runtime.getRuntime().addShutdownHook(shutdown_hook);
 	}
 	
 	/**
@@ -158,7 +162,14 @@ public class PoolManager {
 		
 		nodelist_scheduler.remove(node_list);
 		node_list.sayToAllNodesToDisconnectMe(true);
-		local_server.waitToStop();
+		
+		local_servers.forEach(s -> {
+			s.wantToStop();
+		});
+		local_servers.forEach(s -> {
+			s.waitToStop();
+		});
+		
 		try {
 			Runtime.getRuntime().removeShutdownHook(shutdown_hook);
 		} catch (IllegalStateException e) {
@@ -169,13 +180,16 @@ public class PoolManager {
 	 * @return false if listen == server OR listen all host address & server == me & listen port == server.port
 	 */
 	public boolean isNotThisServerAddress(InetSocketAddress server) {
-		if (local_server != null) {
-			InetSocketAddress listen = local_server.getListen();
-			if (listen.equals(server) | (listen.getAddress().isAnyLocalAddress() & addr_master.isMe(server.getAddress()) & server.getPort() == listen.getPort())) {
+		boolean result = local_servers.stream().map(s -> {
+			return s.getListen();
+		}).anyMatch(a -> {
+			if (a == null) {
 				return false;
 			}
-		}
-		return true;
+			return a.equals(server);
+		});
+		// log.trace("Test addr: " + server + " " + result);
+		return result == false;
 	}
 	
 	/**

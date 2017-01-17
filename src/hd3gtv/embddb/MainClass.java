@@ -40,7 +40,7 @@ public class MainClass {
 		
 		ITQueue itqueue = new ITQueue(2);
 		PoolManager poolmanager = new PoolManager(itqueue, "test");
-		poolmanager.startServer(InetSocketAddress.createUnresolved("0.0.0.0", poolmanager.getProtocol().getDefaultTCPPort()));
+		poolmanager.startLocalServers();
 		
 		// TODO manage white/black range addr list for autodiscover
 		
@@ -49,7 +49,7 @@ public class MainClass {
 		Properties conf = new Properties();
 		conf.load(FileUtils.openInputStream(new File("conf.properties")));
 		
-		importConf(conf, poolmanager.getProtocol().getDefaultTCPPort(), addr -> {
+		importConf(poolmanager, conf, poolmanager.getProtocol().getDefaultTCPPort(), addr -> {
 			try {
 				poolmanager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
 					
@@ -75,15 +75,24 @@ public class MainClass {
 		poolmanager.startConsole();
 	}
 	
-	private static void importConf(Properties conf, int default_port, Consumer<InetSocketAddress> callback_addr) throws Exception {
+	private static void importConf(PoolManager poolmanager, Properties conf, int default_port, Consumer<InetSocketAddress> callback_addr) throws Exception {
 		if (conf.containsKey("hosts") == false) {
 			throw new NullPointerException("No hosts in configuration");
 		}
 		String hosts = conf.getProperty("hosts");
 		
 		Arrays.asList(hosts.split(" ")).stream().map(addr -> {
-			log.debug("Found host in configuration: " + addr);
-			return new InetSocketAddress(addr, default_port);
+			if (addr.isEmpty() == false) {
+				log.debug("Found host in configuration: " + addr);
+				return new InetSocketAddress(addr, default_port);
+			} else {
+				return null;
+			}
+		}).filter(addr -> {
+			if (addr == null) {
+				return false;
+			}
+			return poolmanager.getAddressMaster().isMe(addr.getAddress()) == false;
 		}).forEach(callback_addr::accept);
 	}
 	

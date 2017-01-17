@@ -26,7 +26,7 @@ import hd3gtv.embddb.socket.Protocol;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 
-public class HelloRequest extends Request<Void> {// TODO after create socket
+public class HelloRequest extends Request<Void> {
 	
 	private static Logger log = Logger.getLogger(DisconnectRequest.class);
 	
