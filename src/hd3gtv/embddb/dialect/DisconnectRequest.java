@@ -20,7 +20,6 @@ import java.util.ArrayList;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
@@ -30,8 +29,8 @@ public class DisconnectRequest extends Request<Void> {
 	
 	private static Logger log = Logger.getLogger(DisconnectRequest.class);
 	
-	DisconnectRequest(PoolManager pool_manager) {
-		super(pool_manager);
+	DisconnectRequest(RequestHandler request_handler) {
+		super(request_handler);
 	}
 	
 	public String getHandleName() {

@@ -22,7 +22,6 @@ import java.util.UUID;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
@@ -32,8 +31,8 @@ public class PongRequest extends Request<Void> {
 	
 	private static Logger log = Logger.getLogger(PongRequest.class);
 	
-	public PongRequest(PoolManager pool_manager) {
-		super(pool_manager);
+	public PongRequest(RequestHandler request_handler) {
+		super(request_handler);
 	}
 	
 	public String getHandleName() {

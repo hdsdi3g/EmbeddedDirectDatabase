@@ -20,7 +20,6 @@ import java.util.ArrayList;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.Protocol;
 import hd3gtv.embddb.socket.RequestBlock;
@@ -30,8 +29,8 @@ public class HelloRequest extends Request<Void> {
 	
 	private static Logger log = Logger.getLogger(DisconnectRequest.class);
 	
-	public HelloRequest(PoolManager pool_manager) {
-		super(pool_manager);
+	public HelloRequest(RequestHandler request_handler) {
+		super(request_handler);
 	}
 	
 	public String getHandleName() {
@@ -42,7 +41,11 @@ public class HelloRequest extends Request<Void> {
 		Version distant = Version.resolveFromString(blocks.get(0).getDatasAsString());
 		
 		if (distant.equals(Protocol.VERSION)) {
-			request_handler.getRequestByClass(WelcomeRequest.class).sendRequest(Protocol.VERSION, source_node);
+			WelcomeRequest wc = request_handler.getRequestByClass(WelcomeRequest.class);
+			if (wc == null) {
+				throw new NullPointerException("WelcomeRequest can't to be null");
+			}
+			wc.sendRequest(Protocol.VERSION, source_node);
 		} else {
 			log.error("Node " + source_node + " as a version problem. This = " + Protocol.VERSION + " and distant node = " + distant);
 			ErrorRequest er = request_handler.getRequestByClass(ErrorRequest.class);

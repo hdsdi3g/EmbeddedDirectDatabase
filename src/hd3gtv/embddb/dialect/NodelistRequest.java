@@ -27,7 +27,6 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import hd3gtv.embddb.NodeList;
-import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
@@ -38,8 +37,8 @@ public class NodelistRequest extends Request<Void> {
 	
 	private static Logger log = Logger.getLogger(NodelistRequest.class);
 	
-	public NodelistRequest(PoolManager pool_manager) {
-		super(pool_manager);
+	public NodelistRequest(RequestHandler request_handler) {
+		super(request_handler);
 	}
 	
 	public String getHandleName() {

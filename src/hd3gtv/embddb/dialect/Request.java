@@ -30,12 +30,15 @@ public abstract class Request<T> {
 	protected PoolManager pool_manager;
 	protected RequestHandler request_handler;
 	
-	public Request(PoolManager pool_manager) {
-		this.pool_manager = pool_manager;
+	public Request(RequestHandler request_handler) {
+		this.request_handler = request_handler;
+		if (request_handler == null) {
+			throw new NullPointerException("\"request_handler\" can't to be null");
+		}
+		this.pool_manager = request_handler.getPoolManager();
 		if (pool_manager == null) {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
-		request_handler = pool_manager.getRequestHandler();
 	}
 	
 	/**

@@ -18,15 +18,14 @@ package hd3gtv.embddb.dialect;
 
 import java.util.ArrayList;
 
-import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 
 public class ErrorRequest extends Request<ErrorReturn> {
 	
-	public ErrorRequest(PoolManager pool_manager) {
-		super(pool_manager);
+	public ErrorRequest(RequestHandler request_handler) {
+		super(request_handler);
 	}
 	
 	public String getHandleName() {

@@ -20,15 +20,14 @@ import java.util.ArrayList;
 
 import org.jfree.util.Log;
 
-import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 
 public class WelcomeRequest extends Request<Version> {
 	
-	public WelcomeRequest(PoolManager pool_manager) {
-		super(pool_manager);
+	public WelcomeRequest(RequestHandler request_handler) {
+		super(request_handler);
 	}
 	
 	public String getHandleName() {

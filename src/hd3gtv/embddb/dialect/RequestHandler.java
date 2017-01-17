@@ -40,13 +40,18 @@ public class RequestHandler {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
 		requests = new HashMap<>();
-		addRequest(new ErrorRequest(pool_manager));
-		addRequest(new HelloRequest(pool_manager));
-		addRequest(new WelcomeRequest(pool_manager));
-		addRequest(new DisconnectRequest(pool_manager));
-		addRequest(new NodelistRequest(pool_manager));
-		addRequest(new PingRequest(pool_manager));
-		addRequest(new PongRequest(pool_manager));
+		
+		addRequest(new ErrorRequest(this));
+		addRequest(new HelloRequest(this));
+		addRequest(new WelcomeRequest(this));
+		addRequest(new DisconnectRequest(this));
+		addRequest(new NodelistRequest(this));
+		addRequest(new PingRequest(this));
+		addRequest(new PongRequest(this));
+	}
+	
+	public PoolManager getPoolManager() {
+		return pool_manager;
 	}
 	
 	private void addRequest(Request<?> r) {
@@ -94,14 +99,14 @@ public class RequestHandler {
 				all_size.addAndGet(block.getLen());
 			});
 			if (blocks.size() == 1) {
-				log.trace("Get " + name + " from " + source + " " + all_size.get() + " bytes of datas on 1 block.");
+				log.trace("Get \"" + name + "\" from " + source + " " + all_size.get() + " bytes of datas on 1 block.");
 			} else {
-				log.trace("Get " + name + " from " + source + " " + all_size.get() + " bytes of datas on " + blocks.size() + " blocks.");
+				log.trace("Get \"" + name + "\" from " + source + " " + all_size.get() + " bytes of datas on " + blocks.size() + " blocks.");
 			}
 		}
 		
 		if (requests.containsKey(name) == false) {
-			log.error("Can't handle block name " + name + " from " + node);
+			log.error("Can't handle block name \"" + name + "\" from " + node);
 			return;
 		}
 		

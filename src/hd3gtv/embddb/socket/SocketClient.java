@@ -64,7 +64,7 @@ public class SocketClient implements SocketProvider {
 		}
 		
 		public void failed(Throwable e, Node new_node) {
-			log.error("Can't create TCP Client to " + server, e);
+			log.warn("Can't create TCP Client to " + server + " (" + e.getMessage() + ")");
 		}
 		
 	}

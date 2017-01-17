@@ -18,15 +18,14 @@ package hd3gtv.embddb.dialect;
 
 import java.util.ArrayList;
 
-import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.tools.ArrayWrapper;
 
 public class PingRequest extends Request<Void> {
 	
-	public PingRequest(PoolManager pool_manager) {
-		super(pool_manager);
+	public PingRequest(RequestHandler request_handler) {
+		super(request_handler);
 	}
 	
 	public String getHandleName() {
