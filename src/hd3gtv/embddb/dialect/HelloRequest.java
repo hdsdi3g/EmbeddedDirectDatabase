@@ -16,18 +16,20 @@
 */
 package hd3gtv.embddb.dialect;
 
-import java.util.ArrayList;
+import java.io.IOException;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
+import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.Protocol;
+import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
-import hd3gtv.embddb.tools.ArrayWrapper;
 
 public class HelloRequest extends Request<Void> {
 	
-	private static Logger log = Logger.getLogger(DisconnectRequest.class);
+	private static Logger log = Logger.getLogger(HelloRequest.class);
 	
 	public HelloRequest(RequestHandler request_handler) {
 		super(request_handler);
@@ -37,24 +39,26 @@ public class HelloRequest extends Request<Void> {
 		return "hello";
 	}
 	
-	public void onRequest(ArrayList<RequestBlock> blocks, Node source_node) {
-		Version distant = Version.resolveFromString(blocks.get(0).getDatasAsString());
-		
-		if (distant.equals(Protocol.VERSION)) {
-			WelcomeRequest wc = request_handler.getRequestByClass(WelcomeRequest.class);
-			if (wc == null) {
-				throw new NullPointerException("WelcomeRequest can't to be null");
-			}
-			wc.sendRequest(Protocol.VERSION, source_node);
-		} else {
-			log.error("Node " + source_node + " as a version problem. This = " + Protocol.VERSION + " and distant node = " + distant);
-			ErrorRequest er = request_handler.getRequestByClass(ErrorRequest.class);
-			er.directSendError(source_node, "Version mismatch (" + distant + " vs " + Protocol.VERSION + ")", getClass(), true);
+	public void onRequest(RequestBlock block, Node source_node) {
+		try {
+			source_node.setDistantDate(Long.valueOf(block.getByName("now").getDatasAsString()));
+			source_node.setUUIDRef(UUID.fromString(block.getByName("uuid").getDatasAsString()));
+			source_node.setLocalServerNodeAddresses(pool_manager.getSimpleGson().fromJson(block.getByName("listen_on").getDatasAsString(), PoolManager.type_InetSocketAddress_String));
+			
+			// TODO create cron only after now. not before !
+			
+		} catch (IOException e) {
+			log.error("Node " + source_node + " return invalid hello request... disconnect it", e);
+			source_node.close(NodeCloseReason.ERROR_DURING_PROCESS_REQUEST, getClass());
 		}
 	}
 	
-	public ArrayList<RequestBlock> createRequest(Void options) {
-		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), Protocol.VERSION.toString()));
+	public RequestBlock createRequest(Void options) {
+		RequestBlock b = new RequestBlock(getHandleName());
+		b.createEntry("now", String.valueOf(System.currentTimeMillis()));
+		b.createEntry("uuid", pool_manager.getUUIDRef().toString());
+		b.createEntry("listen_on", pool_manager.getSimpleGson().toJson(pool_manager.getListenedServerAddress().collect(Collectors.toList())));
+		return b;
 	}
 	
 	protected boolean isCloseChannelRequest(Void options) {

@@ -17,14 +17,17 @@
 package hd3gtv.embddb;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import org.apache.log4j.Logger;
 
+import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -63,6 +66,9 @@ public class PoolManager {
 	
 	private ActivityScheduler<Node> node_scheduler;
 	private ActivityScheduler<NodeList> nodelist_scheduler;
+	
+	public static final Type type_InetSocketAddress_String = new TypeToken<ArrayList<InetSocketAddress>>() {
+	}.getType();
 	
 	public PoolManager(ITQueue queue, String master_password_key) throws GeneralSecurityException, IOException {
 		GsonBuilder builder = new GsonBuilder();
@@ -297,6 +303,12 @@ public class PoolManager {
 		});
 		// log.trace("Test addr: " + server + " " + result);
 		return result == false;
+	}
+	
+	public Stream<InetSocketAddress> getListenedServerAddress() {
+		return local_servers.stream().map(s -> {
+			return s.getListen();
+		});
 	}
 	
 	/**

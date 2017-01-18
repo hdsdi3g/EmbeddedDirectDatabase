@@ -17,7 +17,6 @@
 package hd3gtv.embddb.dialect;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.UUID;
 
 import org.apache.log4j.Logger;
@@ -25,33 +24,38 @@ import org.apache.log4j.Logger;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
-import hd3gtv.embddb.tools.ArrayWrapper;
 
-public class PongRequest extends Request<Void> {
+public class PokeRequest extends Request<Void> {
 	
-	private static Logger log = Logger.getLogger(PongRequest.class);
+	private static Logger log = Logger.getLogger(PokeRequest.class);
 	
-	public PongRequest(RequestHandler request_handler) {
+	public PokeRequest(RequestHandler request_handler) {
 		super(request_handler);
 	}
 	
 	public String getHandleName() {
-		return "pong";
+		return "poke";
 	}
 	
-	public void onRequest(ArrayList<RequestBlock> blocks, Node source_node) {
-		UUID current_uuid = UUID.fromString(blocks.get(0).getDatasAsString());
-		
+	public void onRequest(RequestBlock block, Node source_node) {
 		try {
+			long node_date = Long.valueOf(block.getByName("now").getDatasAsString());
+			UUID current_uuid = UUID.fromString(block.getByName("uuid").getDatasAsString());
+			
+			source_node.setDistantDate(node_date);
 			source_node.setUUIDRef(current_uuid);
 		} catch (IOException e) {
-			log.error("Node has changed... disconnect it", e);
-			source_node.getChannelbucket().close(NodeCloseReason.INVALID_UUID, getClass());
+			log.error("Node return invalid response... disconnect it", e);
+			source_node.close(NodeCloseReason.ERROR_DURING_PROCESS_REQUEST, getClass());
 		}
 	}
 	
-	public ArrayList<RequestBlock> createRequest(Void options) {
-		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), pool_manager.getUUIDRef().toString()));
+	public RequestBlock createRequest(Void options) {
+		return new RequestBlock(getHandleName()).createEntry("now", String.valueOf(System.currentTimeMillis())).createEntry("uuid", pool_manager.getUUIDRef().toString());
+	}
+	
+	protected boolean isCloseChannelRequest(ErrorReturn options) {
+		return false;
 	}
 	
 	protected boolean isCloseChannelRequest(Void options) {

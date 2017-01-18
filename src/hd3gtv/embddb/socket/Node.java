@@ -19,17 +19,11 @@ package hd3gtv.embddb.socket;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
-import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
-import java.nio.channels.ReadPendingException;
-import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
@@ -37,10 +31,8 @@ import com.google.gson.JsonObject;
 
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.dialect.ErrorReturn;
-import hd3gtv.embddb.dialect.PingRequest;
+import hd3gtv.embddb.dialect.PokeRequest;
 import hd3gtv.embddb.dialect.Request;
-import hd3gtv.embddb.dialect.WantToCloseLink;
-import hd3gtv.embddb.tools.Hexview;
 import hd3gtv.internaltaskqueue.ActivityScheduledAction;
 import hd3gtv.internaltaskqueue.Procedure;
 import hd3gtv.tools.TableList;
@@ -52,12 +44,13 @@ public class Node {
 	private PoolManager pool_manager;
 	private final ChannelBucket channelbucket;
 	private InetSocketAddress socket_addr;
+	private ArrayList<InetSocketAddress> local_server_node_addr;
 	
 	private UUID uuid_ref;
 	private long server_delta_time;
 	private SocketProvider provider;
 	
-	public Node(SocketProvider provider, PoolManager pool_manager, InetSocketAddress socket_addr, AsynchronousSocketChannel channel) {
+	public Node(SocketProvider provider, PoolManager pool_manager, InetSocketAddress socket_addr, AsynchronousSocketChannel channel) throws IOException {
 		this.provider = provider;
 		if (provider == null) {
 			throw new NullPointerException("\"provider\" can't to be null");
@@ -74,179 +67,28 @@ public class Node {
 			throw new NullPointerException("\"channel\" can't to be null");
 		}
 		
-		channelbucket = new ChannelBucket(this, channel);
+		channelbucket = new ChannelBucket(pool_manager, this, channel);
 		server_delta_time = 0;
 	}
 	
-	public InetSocketAddress getSocketAddr() {
+	public InetSocketAddress getSocketAddr() {// TODO maybe a port problem if used with an equals with another connexion
 		return socket_addr;
 	}
 	
 	public boolean isOpenSocket() {
-		return channelbucket.channel.isOpen();
+		return channelbucket.isOpen();
+	}
+	
+	public void close(NodeCloseReason reason, Class<?> by) {
+		channelbucket.close(reason, by);
 	}
 	
 	public String toString() {
-		return getSocketAddr().getHostName() + ":" + getSocketAddr().getPort() + " [" + provider.getClass().getSimpleName() + "]";
+		return getSocketAddr().getHostName() + " " + getUUID() + " [" + provider.getClass().getSimpleName() + "]";
 	}
 	
 	public ChannelBucket getChannelbucket() {
 		return channelbucket;
-	}
-	
-	public class ChannelBucket {
-		private final Node referer;
-		private final ByteBuffer buffer;
-		private final AsynchronousSocketChannel channel;
-		
-		private ChannelBucket(Node referer, AsynchronousSocketChannel channel) {
-			this.buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
-			this.channel = channel;
-			this.referer = referer;
-		}
-		
-		public boolean isOpen() {
-			return channel.isOpen();
-		}
-		
-		public void checkIfOpen() throws IOException {
-			if (isOpen() == false) {
-				throw new IOException("Channel for " + toString() + " is closed");
-			}
-		}
-		
-		void asyncRead() {
-			buffer.clear();
-			try {
-				channel.read(buffer, this, pool_manager.getProtocol().getHandlerReader());
-			} catch (ReadPendingException e) {
-				log.trace("No two reads at the same time for " + toString());
-			}
-		}
-		
-		void asyncWrite(boolean close_channel_after_send) {
-			channel.write(buffer, this, pool_manager.getProtocol().getHandlerWriter(close_channel_after_send));
-		}
-		
-		/**
-		 * @return distant IP address
-		 */
-		public String toString() {
-			return socket_addr.getHostString();
-		}
-		
-		public void close(NodeCloseReason reason, Class<?> by) {
-			buffer.clear();
-			if (channel.isOpen()) {
-				try {
-					channel.close();
-					log.trace("Close " + toString());
-				} catch (IOException e) {
-					log.warn("Can't close properly channel " + toString(), e);
-				}
-			}
-			pool_manager.getNodeList().remove(referer);
-			
-			if (log.isDebugEnabled()) {
-				log.debug("Want close node, by " + by.getSimpleName() + ", because: " + reason.name());
-			}
-		}
-		
-		public void dump(String text) {
-			buffer.flip();
-			byte[] temp = new byte[buffer.remaining()];
-			buffer.get(temp);
-			Hexview.tracelog(temp, log, text);
-		}
-		
-		private byte[] decrypt() throws GeneralSecurityException {
-			buffer.flip();
-			byte[] content = new byte[buffer.remaining()];
-			if (log.isTraceEnabled()) {
-				log.trace("Prepare " + content.length + " bytes to decrypt");
-			}
-			
-			buffer.get(content, 0, content.length);
-			buffer.clear();
-			
-			byte[] result = pool_manager.getProtocol().decrypt(content, 0, content.length);
-			if (log.isTraceEnabled()) {
-				log.trace("Get " + result.length + " bytes decrypted");
-			}
-			
-			return result;
-		}
-		
-		private void encrypt(byte[] data) throws GeneralSecurityException {
-			if (log.isTraceEnabled()) {
-				log.trace("Prepare " + data.length + " bytes to encrypt");
-			}
-			
-			buffer.clear();
-			
-			byte[] result = pool_manager.getProtocol().encrypt(data, 0, data.length);
-			buffer.put(result);
-			
-			buffer.flip();
-			
-			if (log.isTraceEnabled()) {
-				log.trace("Get " + result.length + " bytes encrypted");
-			}
-		}
-		
-		/**
-		 * It will add to queue
-		 */
-		public void doProcessReceviedDatas() throws Exception {
-			final byte[] datas = decrypt();
-			pool_manager.getQueue().addToQueue(() -> {
-				ArrayList<RequestBlock> blocks = null;
-				try {
-					blocks = pool_manager.getProtocol().decompressBlocks(datas);
-				} catch (IOException e) {
-					log.error("Can't extract sended blocks " + referer.toString(), e);
-					close(NodeCloseReason.ERROR_DURING_PROCESS_REQUEST, referer.getClass());
-					return;
-				}
-				pool_manager.getRequestHandler().onReceviedNewBlocks(blocks, socket_addr.getAddress(), referer);
-			}, wtcl -> {
-				if (wtcl instanceof WantToCloseLink) {
-					log.debug("Handler want to close link");
-					close(NodeCloseReason.INTERNAL_REQUEST_DISCONNECT, referer.getClass());
-					return;
-				}
-				log.error("Can process request handler", wtcl);
-				close(NodeCloseReason.ERROR_DURING_PROCESS_REQUEST, referer.getClass());
-			});
-		}
-		
-		/**
-		 * It will add to queue.
-		 * @throws IOException if channel is closed.
-		 */
-		public void sendDatas(ArrayList<RequestBlock> to_send, boolean close_channel_after_send) throws IOException {
-			checkIfOpen();
-			
-			pool_manager.getQueue().addToQueue(() -> {
-				if (log.isTraceEnabled()) {
-					AtomicInteger all_size = new AtomicInteger(0);
-					to_send.forEach(block -> {
-						all_size.addAndGet(block.getLen());
-					});
-					if (to_send.size() == 1) {
-						log.trace("Send to " + toString() + " " + all_size.get() + " bytes of datas on 1 block.");
-					} else {
-						log.trace("Get from " + toString() + " " + all_size.get() + " bytes of datas on " + to_send.size() + " blocks.");
-					}
-				}
-				
-				byte[] datas = pool_manager.getProtocol().compressBlocks(to_send);
-				encrypt(datas);
-				asyncWrite(close_channel_after_send);
-			}, e -> {
-				log.error("Can't send datas " + toString(), e);
-			});
-		}
 	}
 	
 	/**
@@ -298,15 +140,11 @@ public class Node {
 	/**
 	 * It will add to queue
 	 */
-	public void sendBlocks(ArrayList<RequestBlock> to_send, boolean close_channel_after_send) {
+	public void sendBlock(RequestBlock to_send, boolean close_channel_after_send) {
 		try {
-			channelbucket.sendDatas(to_send, close_channel_after_send);
+			channelbucket.sendData(to_send, close_channel_after_send);
 		} catch (IOException e) {
-			List<String> block_names = to_send.stream().map(b -> {
-				return b.getName();
-			}).collect(Collectors.toList());
-			
-			log.error("Can't send datas to " + toString() + " > " + block_names);
+			log.error("Can't send datas to " + toString() + " > " + to_send.getRequestName());
 			channelbucket.close(NodeCloseReason.ERROR_DURING_SENDING, getClass());
 		}
 	}
@@ -320,7 +158,7 @@ public class Node {
 		}
 		if (uuid_ref == null) {
 			uuid_ref = uuid;
-			pool_manager.getNodeList().updateUUID(this);
+			pool_manager.getNodeList().updateUUID(this);// TODO is uuid is previousely set, disconnenct now
 			log.debug("Set UUID for " + toString() + ", " + uuid);
 		}
 		check(uuid);
@@ -370,6 +208,17 @@ public class Node {
 		return uuid_ref;
 	}
 	
+	public void setLocalServerNodeAddresses(ArrayList<InetSocketAddress> local_server_node_addr) throws IOException {
+		this.local_server_node_addr = local_server_node_addr;
+		if (local_server_node_addr == null) {
+			throw new IOException("\"local_server_node_addr\" can't to be null");
+		}
+		if (local_server_node_addr.isEmpty()) {
+			throw new IOException("\"local_server_node_addr\" can't to be empty");
+		}
+		log.debug("Node " + toString() + " has some sockets addresses for its local server: " + local_server_node_addr);
+	}
+	
 	/**
 	 * @return null if not uuid or closed
 	 */
@@ -379,14 +228,7 @@ public class Node {
 		}
 		JsonObject jo = new JsonObject();
 		jo.addProperty("uuid", uuid_ref.toString());
-		jo.addProperty("addr", this.socket_addr.getAddress().getHostAddress());
-		try {
-			log.debug("Local port for node " + toString() + ": " + ((InetSocketAddress) this.getChannelbucket().channel.getLocalAddress()).getPort());
-			log.debug("Remote port for node " + toString() + ": " + ((InetSocketAddress) this.getChannelbucket().channel.getRemoteAddress()).getPort());
-		} catch (IOException e) {
-			log.error("Can't get addr", e);
-		}
-		jo.addProperty("port", this.socket_addr.getPort()); // XXX port is local or distant ?!
+		jo.add("server_addr", pool_manager.getSimpleGson().toJsonTree(local_server_node_addr));
 		return jo;
 	}
 	
@@ -397,11 +239,11 @@ public class Node {
 		throw new NullPointerException("Missing uuid item in json " + item.toString());
 	}
 	
-	public static InetSocketAddress getAddressFromAutodiscoverIDCard(JsonObject item) throws NullPointerException, UnknownHostException {
-		if (item.has("addr") && item.has("port")) {
-			return InetSocketAddress.createUnresolved(item.get("addr").getAsString(), item.get("port").getAsInt());
+	public static ArrayList<InetSocketAddress> getAddressFromAutodiscoverIDCard(PoolManager pool_manager, JsonObject item) throws NullPointerException, UnknownHostException {
+		if (item.has("server_addr") == false) {
+			throw new NullPointerException("Missing addr/port items in json " + item.toString());
 		}
-		throw new NullPointerException("Missing addr/port item in json " + item.toString());
+		return pool_manager.getSimpleGson().fromJson(item.get("server_addr"), PoolManager.type_InetSocketAddress_String);
 	}
 	
 	public static final long MAX_TOLERANCE_DELTA_TIME_WITH_SERVER = TimeUnit.SECONDS.toMillis(30);
@@ -411,11 +253,11 @@ public class Node {
 	 */
 	public static final long MIN_TOLERANCE_DELTA_TIME_WILL_UPDATE_CHANGE = TimeUnit.MILLISECONDS.toMillis(200);
 	
-	public boolean setDistantDate(long server_date) {
+	public void setDistantDate(long server_date) throws IOException {
 		long new_delay = server_date - System.currentTimeMillis();
 		
 		if (Math.abs(server_delta_time - new_delay) < MIN_TOLERANCE_DELTA_TIME_WILL_UPDATE_CHANGE) {
-			return true;
+			return;
 		}
 		
 		if (log.isTraceEnabled()) {
@@ -425,12 +267,9 @@ public class Node {
 		server_delta_time = new_delay;
 		
 		if ((server_delta_time != new_delay) && (Math.abs(server_delta_time) > MAX_TOLERANCE_DELTA_TIME_WITH_SERVER)) {
-			log.warn(
-					"Big delay with server " + toString() + ": " + server_delta_time + " ms. Please check the NTP setup with this host and the server ! In the meantime, this node will be disconned.");
-			channelbucket.close(NodeCloseReason.INVALID_NODE_DATE, getClass());
-			return false;
+			log.warn("Big delay with node " + toString() + ": " + server_delta_time + " ms. Please check the NTP setup with this host and the node ! In the meantime, this node will be disconned.");
+			throw new IOException("Invalid node delay (" + Math.abs(server_delta_time) + ")");
 		}
-		return true;
 	}
 	
 	/**
@@ -484,7 +323,7 @@ public class Node {
 			public Procedure getRegularScheduledAction() {
 				return () -> {
 					current_node.channelbucket.checkIfOpen();
-					pool_manager.getRequestHandler().getRequestByClass(PingRequest.class).sendRequest(null, current_node);// TODO is stared ?
+					pool_manager.getRequestHandler().getRequestByClass(PokeRequest.class).sendRequest(null, current_node);
 				};
 			}
 		};

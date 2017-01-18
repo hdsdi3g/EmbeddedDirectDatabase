@@ -16,11 +16,12 @@
 */
 package hd3gtv.embddb.dialect;
 
-import java.util.ArrayList;
+import java.io.IOException;
+
+import org.jfree.util.Log;
 
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
-import hd3gtv.embddb.tools.ArrayWrapper;
 
 public class ErrorRequest extends Request<ErrorReturn> {
 	
@@ -32,13 +33,17 @@ public class ErrorRequest extends Request<ErrorReturn> {
 		return "error";
 	}
 	
-	public void onRequest(ArrayList<RequestBlock> blocks, Node source_node) {
-		ErrorReturn error = ErrorReturn.fromJsonString(pool_manager, blocks.get(0).getDatasAsString());
-		source_node.onErrorReturnFromNode(error);
+	public void onRequest(RequestBlock blocks, Node source_node) {
+		try {
+			ErrorReturn error = ErrorReturn.fromJsonString(pool_manager, blocks.getByName("message").getDatasAsString());
+			source_node.onErrorReturnFromNode(error);
+		} catch (IOException e) {
+			Log.error("Can't get error message from " + source_node, e);
+		}
 	}
 	
-	public ArrayList<RequestBlock> createRequest(ErrorReturn options) {
-		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), ErrorReturn.toJsonString(pool_manager, options)));
+	public RequestBlock createRequest(ErrorReturn options) {
+		return new RequestBlock(getHandleName()).createEntry("message", ErrorReturn.toJsonString(pool_manager, options));
 	}
 	
 	public void directSendError(Node node, String message, Class<?> caller, boolean disconnectme) {

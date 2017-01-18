@@ -16,16 +16,15 @@
 */
 package hd3gtv.embddb.dialect;
 
-import java.util.ArrayList;
+import java.io.IOException;
 
 import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
-import hd3gtv.embddb.tools.ArrayWrapper;
 
-public class DisconnectRequest extends Request<Void> {
+public class DisconnectRequest extends Request<String> {
 	
 	private static Logger log = Logger.getLogger(DisconnectRequest.class);
 	
@@ -37,16 +36,20 @@ public class DisconnectRequest extends Request<Void> {
 		return "disconnectme";
 	}
 	
-	public void onRequest(ArrayList<RequestBlock> blocks, Node node) {
-		log.info("Distant node " + node + " ask to to close");
-		node.getChannelbucket().close(NodeCloseReason.EXTERNAL_REQUEST_DISCONNECT, getClass());
+	public void onRequest(RequestBlock block, Node node) {
+		try {
+			log.info("Distant node " + node + " ask to to close because it say \"" + block.getByName("reason").getDatasAsString() + "\"");
+		} catch (IOException e) {
+			log.info("Distant node " + node + " ask to to close", e);
+		}
+		node.close(NodeCloseReason.EXTERNAL_REQUEST_DISCONNECT, getClass());
 	}
 	
-	public ArrayList<RequestBlock> createRequest(Void options) {
-		return ArrayWrapper.asArrayList(new RequestBlock(getHandleName(), ""));
+	public RequestBlock createRequest(String options) {
+		return new RequestBlock(getHandleName()).createEntry("reason", options);
 	}
 	
-	protected boolean isCloseChannelRequest(Void options) {
+	protected boolean isCloseChannelRequest(String options) {
 		return true;
 	}
 	

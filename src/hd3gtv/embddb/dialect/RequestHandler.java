@@ -16,11 +16,8 @@
 */
 package hd3gtv.embddb.dialect;
 
-import java.net.InetAddress;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.log4j.Logger;
 
@@ -43,11 +40,9 @@ public class RequestHandler {
 		
 		addRequest(new ErrorRequest(this));
 		addRequest(new HelloRequest(this));
-		addRequest(new WelcomeRequest(this));
 		addRequest(new DisconnectRequest(this));
 		addRequest(new NodelistRequest(this));
-		addRequest(new PingRequest(this));
-		addRequest(new PongRequest(this));
+		addRequest(new PokeRequest(this));
 	}
 	
 	public PoolManager getPoolManager() {
@@ -90,27 +85,17 @@ public class RequestHandler {
 		return null;
 	}
 	
-	public void onReceviedNewBlocks(ArrayList<RequestBlock> blocks, InetAddress source, Node node) throws WantToCloseLink {
-		String name = blocks.get(0).getName();
-		
+	public void onReceviedNewBlock(RequestBlock block, Node node) throws WantToCloseLink {
 		if (log.isTraceEnabled()) {
-			AtomicInteger all_size = new AtomicInteger(0);
-			blocks.forEach(block -> {
-				all_size.addAndGet(block.getLen());
-			});
-			if (blocks.size() == 1) {
-				log.trace("Get \"" + name + "\" from " + source + " " + all_size.get() + " bytes of datas on 1 block.");
-			} else {
-				log.trace("Get \"" + name + "\" from " + source + " " + all_size.get() + " bytes of datas on " + blocks.size() + " blocks.");
-			}
+			log.trace("Get " + block.toString() + " from " + node);
 		}
 		
-		if (requests.containsKey(name) == false) {
-			log.error("Can't handle block name \"" + name + "\" from " + node);
+		if (requests.containsKey(block.getRequestName()) == false) {
+			log.error("Can't handle block name \"" + block.getRequestName() + "\" from " + node);
 			return;
 		}
 		
-		requests.get(name).onRequest(blocks, node);
+		requests.get(block.getRequestName()).onRequest(block, node);
 	}
 	
 }

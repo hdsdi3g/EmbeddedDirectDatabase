@@ -16,8 +16,6 @@
 */
 package hd3gtv.embddb.dialect;
 
-import java.util.ArrayList;
-
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
@@ -46,22 +44,20 @@ public abstract class Request<T> {
 	 */
 	public abstract String getHandleName();
 	
-	public abstract void onRequest(ArrayList<RequestBlock> blocks, Node source_node);
+	public abstract void onRequest(RequestBlock block, Node source_node);
 	
 	/**
 	 * @return first RequestBlock.name must equals to getHandleName()
 	 */
-	public abstract ArrayList<RequestBlock> createRequest(T options);
+	public abstract RequestBlock createRequest(T options);
 	
 	public final void sendRequest(T options, Node dest_node) throws NullPointerException, IndexOutOfBoundsException {
-		ArrayList<RequestBlock> blocks = createRequest(options);
-		if (blocks == null) {
+		RequestBlock block = createRequest(options);
+		if (block == null) {
 			throw new NullPointerException("No blocks to send");
 		}
-		if (blocks.size() == 0) {
-			throw new IndexOutOfBoundsException("No blocks to send");
-		}
-		dest_node.sendBlocks(blocks, isCloseChannelRequest(options));
+		block.checkIfNotEmpty();
+		dest_node.sendBlock(block, isCloseChannelRequest(options));
 	}
 	
 	protected abstract boolean isCloseChannelRequest(T options);

@@ -18,8 +18,6 @@ package hd3gtv.embddb.socket;
 
 import java.nio.channels.CompletionHandler;
 
-import hd3gtv.embddb.socket.Node.ChannelBucket;
-
 interface SocketHandler extends CompletionHandler<Integer, ChannelBucket> {
 	
 }

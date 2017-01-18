@@ -233,10 +233,10 @@ public class NodeList {
 				return () -> {
 					purgeClosedNodes();
 					if (autodiscover_can_be_remake.compareAndSet(true, false)) {
-						ArrayList<RequestBlock> to_send = pool_manager.getRequestHandler().getRequestByClass(NodelistRequest.class).createRequest(null);
+						RequestBlock to_send = pool_manager.getRequestHandler().getRequestByClass(NodelistRequest.class).createRequest(null);
 						if (to_send != null) {
 							nodes.forEach(n -> {
-								n.sendBlocks(to_send, false);
+								n.sendBlock(to_send, false);
 							});
 						}
 					}
@@ -246,9 +246,9 @@ public class NodeList {
 	}
 	
 	public void sayToAllNodesToDisconnectMe(boolean blocking) {
-		ArrayList<RequestBlock> to_send = pool_manager.getRequestHandler().getRequestByClass(DisconnectRequest.class).createRequest(null);
+		RequestBlock to_send = pool_manager.getRequestHandler().getRequestByClass(DisconnectRequest.class).createRequest("All nodes instance shutdown");
 		nodes.forEach(n -> {
-			n.sendBlocks(to_send, true);
+			n.sendBlock(to_send, true);
 		});
 		
 		if (blocking) {

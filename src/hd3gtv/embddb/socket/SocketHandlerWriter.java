@@ -18,8 +18,6 @@ package hd3gtv.embddb.socket;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.socket.Node.ChannelBucket;
-
 class SocketHandlerWriter implements SocketHandler {
 	
 	private static final Logger log = Logger.getLogger(SocketHandlerWriter.class);
@@ -27,10 +25,6 @@ class SocketHandlerWriter implements SocketHandler {
 	protected void showLogs(Integer size, ChannelBucket bucket) {
 		if (log.isTraceEnabled()) {
 			log.trace("Sended to " + bucket + " " + size + " bytes");
-		}
-		
-		if (Protocol.DISPLAY_HEXDUMP) {
-			bucket.dump("Crypted sended content to client");
 		}
 	}
 	

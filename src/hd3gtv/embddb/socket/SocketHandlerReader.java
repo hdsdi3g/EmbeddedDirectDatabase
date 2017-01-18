@@ -18,8 +18,6 @@ package hd3gtv.embddb.socket;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.socket.Node.ChannelBucket;
-
 class SocketHandlerReader implements SocketHandler {
 	
 	private static final Logger log = Logger.getLogger(SocketHandlerReader.class);
@@ -32,10 +30,6 @@ class SocketHandlerReader implements SocketHandler {
 		
 		if (log.isTraceEnabled()) {
 			log.trace("Recevied from " + bucket + " " + size + " bytes");
-		}
-		
-		if (Protocol.DISPLAY_HEXDUMP) {
-			bucket.dump("Crypted recivied content from client");
 		}
 		
 		try {

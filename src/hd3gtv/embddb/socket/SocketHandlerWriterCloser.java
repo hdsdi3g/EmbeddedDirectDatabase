@@ -16,8 +16,6 @@
 */
 package hd3gtv.embddb.socket;
 
-import hd3gtv.embddb.socket.Node.ChannelBucket;
-
 class SocketHandlerWriterCloser extends SocketHandlerWriter {
 	
 	public void completed(Integer size, ChannelBucket bucket) {
