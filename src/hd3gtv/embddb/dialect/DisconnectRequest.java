@@ -21,7 +21,6 @@ import java.io.IOException;
 import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
 
 public class DisconnectRequest extends Request<String> {
@@ -42,7 +41,7 @@ public class DisconnectRequest extends Request<String> {
 		} catch (IOException e) {
 			log.info("Distant node " + node + " ask to to close", e);
 		}
-		node.close(NodeCloseReason.EXTERNAL_REQUEST_DISCONNECT, getClass());
+		node.close(getClass());
 	}
 	
 	public RequestBlock createRequest(String options) {

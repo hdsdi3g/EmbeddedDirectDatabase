@@ -85,21 +85,20 @@ class ChannelBucket {
 		return remote_socket_addr.getHostString() + ":" + remote_socket_addr.getPort();
 	}
 	
-	void close(NodeCloseReason reason, Class<?> by) {
+	void close(Class<?> by) {
+		if (log.isDebugEnabled()) {
+			log.debug("Want close node, by " + by.getSimpleName());
+		}
+		
 		buffer.clear();
 		if (channel.isOpen()) {
 			try {
 				channel.close();
-				log.trace("Close " + toString());
 			} catch (IOException e) {
 				log.warn("Can't close properly channel " + toString(), e);
 			}
 		}
 		pool_manager.getNodeList().remove(referer);
-		
-		if (log.isDebugEnabled()) {
-			log.debug("Want close node, by " + by.getSimpleName() + ", because: " + reason.name());
-		}
 	}
 	
 	byte[] decrypt() throws GeneralSecurityException {
@@ -148,18 +147,18 @@ class ChannelBucket {
 				block = new RequestBlock(pool_manager.getProtocol(), datas);
 			} catch (IOException e) {
 				log.error("Can't extract sended blocks " + referer.toString(), e);
-				close(NodeCloseReason.ERROR_DURING_PROCESS_REQUEST, referer.getClass());
+				close(getClass());
 				return;
 			}
 			pool_manager.getRequestHandler().onReceviedNewBlock(block, referer);
 		}, wtcl -> {
 			if (wtcl instanceof WantToCloseLink) {
 				log.debug("Handler want to close link");
-				close(NodeCloseReason.INTERNAL_REQUEST_DISCONNECT, referer.getClass());
+				close(getClass());
 				return;
 			}
 			log.error("Can process request handler", wtcl);
-			close(NodeCloseReason.ERROR_DURING_PROCESS_REQUEST, referer.getClass());
+			close(getClass());
 		});
 	}
 	
@@ -182,4 +181,10 @@ class ChannelBucket {
 		});
 	}
 	
+	/**
+	 * @return channel.hashCode
+	 */
+	public int hashCode() {
+		return this.channel.hashCode();
+	}
 }

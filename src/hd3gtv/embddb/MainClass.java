@@ -29,7 +29,6 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.Protocol;
 import hd3gtv.internaltaskqueue.ITQueue;
 
 public class MainClass {
@@ -39,9 +38,8 @@ public class MainClass {
 	public static void main(String[] args) throws Exception {
 		Security.addProvider(new BouncyCastleProvider());
 		
-		System.setProperty(Protocol.class.getName().toLowerCase() + ".dump.hex", "false");
-		
 		ITQueue itqueue = new ITQueue(2);
+		
 		PoolManager poolmanager = new PoolManager(itqueue, "test");
 		poolmanager.startLocalServers();
 		
@@ -92,10 +90,7 @@ public class MainClass {
 				return null;
 			}
 		}).filter(addr -> {
-			if (addr == null) {
-				return false;
-			}
-			return poolmanager.getAddressMaster().isMe(addr.getAddress()) == false;
+			return addr != null;
 		}).forEach(callback_addr::accept);
 	}
 	

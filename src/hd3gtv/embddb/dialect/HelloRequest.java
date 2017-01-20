@@ -24,7 +24,6 @@ import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
 
 public class HelloRequest extends Request<Void> {
@@ -45,11 +44,10 @@ public class HelloRequest extends Request<Void> {
 			source_node.setUUIDRef(UUID.fromString(block.getByName("uuid").getDatasAsString()));
 			source_node.setLocalServerNodeAddresses(pool_manager.getSimpleGson().fromJson(block.getByName("listen_on").getDatasAsString(), PoolManager.type_InetSocketAddress_String));
 			
-			// TODO create cron only after now. not before !
-			
+			pool_manager.getNode_scheduler().add(source_node, source_node.getScheduledAction());
 		} catch (IOException e) {
 			log.error("Node " + source_node + " return invalid hello request... disconnect it", e);
-			source_node.close(NodeCloseReason.ERROR_DURING_PROCESS_REQUEST, getClass());
+			source_node.close(getClass());
 		}
 	}
 	

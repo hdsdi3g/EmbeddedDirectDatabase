@@ -84,7 +84,7 @@ public abstract class StoppableThread extends Thread {
 		try {
 			long end_date = System.currentTimeMillis() + milis;
 			while (end_date > System.currentTimeMillis() & want_to_stop == false) {
-				Thread.sleep(50);
+				Thread.sleep(1);
 			}
 		} catch (InterruptedException e) {
 			log.warn("Can't wait Thread stop", e);

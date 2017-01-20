@@ -16,6 +16,7 @@
 */
 package hd3gtv.embddb;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 import org.apache.log4j.Logger;
 
@@ -98,7 +100,7 @@ public class NodeList {
 		return nodes_by_uuid.containsKey(uuid);
 	}
 	
-	private void purgeClosedNodes() {
+	public void purgeClosedNodes() {
 		synchronized (lock) {
 			nodes.removeIf(n -> {
 				if (n.isOpenSocket()) {
@@ -170,14 +172,12 @@ public class NodeList {
 			}
 			nodes.add(node);
 		}
-		
 		pool_manager.getRequestHandler().getRequestByClass(HelloRequest.class).sendRequest(null, node);
 		
-		pool_manager.getNode_scheduler().add(node, node.getScheduledAction());
 		return true;
 	}
 	
-	public void updateUUID(Node node) {
+	public void updateUUID(Node node) throws IOException {
 		if (node.getUUID() == null) {
 			throw new NullPointerException("Node uuid can't to be null for " + node);
 		}
@@ -186,6 +186,8 @@ public class NodeList {
 			synchronized (lock) {
 				nodes_by_uuid.put(newuuid, node);
 			}
+		} else if (node.equals(nodes_by_uuid.get(newuuid)) == false) {
+			throw new IOException("Node UUID for " + node + " was previousely added to another node (" + nodes_by_uuid.get(newuuid) + ") entry. So it can't declare twice the same node !");
 		}
 	}
 	
@@ -259,6 +261,10 @@ public class NodeList {
 			} catch (InterruptedException e1) {
 			}
 		}
+	}
+	
+	public Stream<Node> getAllNodes() {
+		return nodes.stream();
 	}
 	
 }

@@ -20,7 +20,7 @@ class SocketHandlerWriterCloser extends SocketHandlerWriter {
 	
 	public void completed(Integer size, ChannelBucket bucket) {
 		showLogs(size, bucket);
-		bucket.close(NodeCloseReason.SOCKET_HANDLER, getClass());
+		bucket.close(getClass());
 	}
 	
 }

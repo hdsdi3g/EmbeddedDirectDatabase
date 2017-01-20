@@ -209,19 +209,18 @@ public class ITQueue {
 		private volatile ParameterizedTask<?, ?> selected_task;
 		
 		public void run() {
-			// TODO try w/o sleep
 			while (isWantToRun()) {
-				if (pending_tasks.isEmpty() == false) {
+				while (isWantToRun() && pending_tasks.isEmpty() == false) {
 					synchronized (pending_tasks) {
 						try {
 							selected_task = pending_tasks.removeFirst();
 						} catch (NoSuchElementException nsee) {
-							stoppableSleep(10);
+							stoppableSleep(1);
 							continue;
 						}
 					}
 					if (selected_task == null) {
-						stoppableSleep(10);
+						stoppableSleep(1);
 						continue;
 					}
 					
@@ -235,7 +234,7 @@ public class ITQueue {
 					}
 					selected_task = null;
 				}
-				stoppableSleep(10);
+				stoppableSleep(1);
 			}
 		}
 		

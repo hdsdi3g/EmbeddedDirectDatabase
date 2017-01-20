@@ -59,7 +59,7 @@ public class AddressMaster {
 	}
 	
 	public static boolean isLocalAddress(InetAddress addr) {
-		return addr.isLoopbackAddress() | addr.isAnyLocalAddress() | addr.isLinkLocalAddress() | addr.isMulticastAddress();
+		return addr.isLoopbackAddress();
 	}
 	
 	/**

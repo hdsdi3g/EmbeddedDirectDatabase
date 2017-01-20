@@ -24,7 +24,8 @@ class SocketHandlerReader implements SocketHandler {
 	
 	public void completed(Integer size, ChannelBucket bucket) {
 		if (size < 1) {
-			bucket.close(NodeCloseReason.EMPTY_SOCKET_DATAS, getClass());
+			log.debug("Get empty datas from " + bucket.toString() + ", close socket");
+			bucket.close(getClass());
 			return;
 		}
 		
@@ -40,8 +41,8 @@ class SocketHandlerReader implements SocketHandler {
 	}
 	
 	public void failed(Throwable e, ChannelBucket bucket) {
-		log.error("Channel " + bucket + " failed", e);
-		bucket.close(NodeCloseReason.SOCKET_HANDLER_EXCEPTION, getClass());
+		log.error("Channel " + bucket + " failed, close socket", e);
+		bucket.close(getClass());
 	}
 	
 }

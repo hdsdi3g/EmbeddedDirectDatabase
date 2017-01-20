@@ -50,7 +50,10 @@ public class ActivityScheduler<T> {
 			if (regular_tasks.stream().anyMatch(task -> {
 				return task.equalsReference(reference);
 			}) == false) {
+				log.debug("Prepare regular process \"" + action.getScheduledActionName() + "\" for " + reference.getClass().getSimpleName());
 				regular_tasks.add(rt);
+			} else {
+				rt.cancel();
 			}
 		}
 	}

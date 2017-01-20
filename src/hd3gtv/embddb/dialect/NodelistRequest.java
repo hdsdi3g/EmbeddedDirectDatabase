@@ -16,7 +16,6 @@
 */
 package hd3gtv.embddb.dialect;
 
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.UUID;
 
@@ -27,10 +26,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import hd3gtv.embddb.NodeList;
-import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
-import hd3gtv.internaltaskqueue.ParametedProcedure;
+import hd3gtv.tools.AddressMaster;
 
 public class NodelistRequest extends Request<Void> {
 	
@@ -62,23 +60,6 @@ public class NodelistRequest extends Request<Void> {
 			
 			UUID this_uuid = pool_manager.getUUIDRef();
 			
-			ParametedProcedure<InetSocketAddress> operation_declare = addr -> {
-				pool_manager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
-					
-					public void onNewConnectedNode(Node node) {
-						log.info("Autodiscover allowed to connect to " + node + " (provided by " + source_node + ")");
-					}
-					
-					public void onLocalServerConnection(InetSocketAddress server) {
-						log.warn("Autodiscover cant add this server (" + server + ")  as node (provided by " + source_node + ")");
-					}
-					
-					public void alreadyConnectedNode(Node node) {
-						log.info("Autodiscover cant add an already connected node (" + node + " provided by " + source_node + ")");
-					}
-				});
-			};
-			
 			jo_list.stream().filter(jo -> {
 				/**
 				 * Remove all actual UUID from list
@@ -100,23 +81,58 @@ public class NodelistRequest extends Request<Void> {
 					log.warn("Invalid Addr format in json " + list.toString() + " from " + source_node, e);
 					return null;
 				}
-			}).filter(server_node_addr -> {
+			}).filter(server_node_addr_list -> {
 				/**
 				 * Remove null addr (by security)
 				 */
-				return server_node_addr != null;
-			}).forEach(server_node_addr -> {
+				if (server_node_addr_list == null) {
+					return false;
+				}
+				server_node_addr_list.removeIf(addr -> {
+					return addr == null;
+				});
+				
 				/**
-				 * 
+				 * if any candidate listening addr is the same as this local server listen.
 				 */
-				// TODO detect the best addr to connect with the best network to connect it
-				// TODO manage localhost connections
-				/*pool_manager.getQueue().addToQueue(addr, operation_declare, (error_addr, e) -> {
+				return server_node_addr_list.stream().anyMatch(addr -> {
+					return pool_manager.getListenedServerAddress().anyMatch(listened_addr -> {
+						if (AddressMaster.isLocalAddress(listened_addr.getAddress())) {
+							return false;
+						}
+						return listened_addr.equals(addr);
+					});
+				}) == false;
+			}).forEach(server_node_addr_list -> {
+				// TODO final autodiscover
+				/**
+				 * Get if public addr == is me / no public addr
+				 * ========> check localhost addr is not me > add all localhost addr
+				 * ====else> void
+				 * else> add all addr (but not all localhost addr)
+				 */
+				
+				/*pool_manager.getQueue().addToQueue(addr, addr -> {
+				pool_manager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
+					
+					public void onNewConnectedNode(Node node) {
+						log.info("Autodiscover allowed to connect to " + node + " (provided by " + source_node + ")");
+					}
+					
+					public void onLocalServerConnection(InetSocketAddress server) {
+						log.warn("Autodiscover cant add this server (" + server + ")  as node (provided by " + source_node + ")");
+					}
+					
+					public void alreadyConnectedNode(Node node) {
+						log.info("Autodiscover cant add an already connected node (" + node + " provided by " + source_node + ")");
+					}
+				});
+				}, (error_addr, e) -> {
 					log.error("Autodiscover operation can't to connect to node via " + error_addr);
 				});*/
 			});
 		} catch (Exception e) {
-			
+			log.warn("Error during autodiscover nodelist (from " + source_node + ")", e);
 		}
 	}
 	

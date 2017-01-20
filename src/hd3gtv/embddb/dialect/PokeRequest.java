@@ -22,7 +22,6 @@ import java.util.UUID;
 import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.NodeCloseReason;
 import hd3gtv.embddb.socket.RequestBlock;
 
 public class PokeRequest extends Request<Void> {
@@ -46,7 +45,7 @@ public class PokeRequest extends Request<Void> {
 			source_node.setUUIDRef(current_uuid);
 		} catch (IOException e) {
 			log.error("Node return invalid response... disconnect it", e);
-			source_node.close(NodeCloseReason.ERROR_DURING_PROCESS_REQUEST, getClass());
+			source_node.close(getClass());
 		}
 	}
 	

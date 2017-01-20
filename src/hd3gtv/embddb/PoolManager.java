@@ -31,6 +31,7 @@ import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import hd3gtv.embddb.dialect.DisconnectRequest;
 import hd3gtv.embddb.dialect.RequestHandler;
 import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
@@ -117,74 +118,73 @@ public class PoolManager {
 			});
 		});
 		
-		/*			console.addOrder("nl", "Node list", "Display actual connected node", getClass(), param -> {
-						TableList table = new TableList(5);
-						nodes.forEach(node -> {
-							node.addToActualStatus(table);
-						});
-						table.print();
-					});
+		console.addOrder("nl", "Node list", "Display actual connected node", getClass(), param -> {
+			TableList table = new TableList(5);
+			node_list.getAllNodes().forEach(node -> {
+				node.addToActualStatus(table);
+			});
+			table.print();
+		});
+		
+		console.addOrder("node", "Node action", "Do action to a node", getClass(), param -> {
+			if (param == null) {
+				System.out.println("Usage:");
+				System.out.println("node add address [port]");
+				System.out.println("   for add a new node (after a valid connection)");
+				System.out.println("node rm address [port]");
+				System.out.println("   remove a node with protocol (to a disconnect request)");
+				System.out.println("node close address [port]");
+				System.out.println("   for disconnect directly a node");
+				System.out.println("node isopen address [port]");
+				System.out.println("   for force to check the socket state (open or close)");
+				return;
+			}
+			
+			InetSocketAddress addr = parseAddressFromCmdConsole(param);
+			
+			if (addr == null) {
+				System.out.println("Can't get address from ”" + param + "”");
+				return;
+			}
+			
+			if (param.startsWith("add")) {
+				declareNewPotentialDistantServer(addr, new ConnectionCallback() {
 					
-					console.addOrder("node", "Node action", "Do action to a node", getClass(), param -> {
-						if (param == null) {
-							System.out.println("Usage:");
-							System.out.println("node add address[:port]");
-							System.out.println("   for add a new node (after a valid connection)");
-							System.out.println("node rm address[:port]");
-							System.out.println("   remove a node with protocol (to a disconnect request)");
-							System.out.println("node close address[:port]");
-							System.out.println("   for disconnect directly a node");
-							System.out.println("node isopen address[:port]");
-							System.out.println("   for force to check the socket state (open or close)");
-							return;
-						}
-						
-						InetSocketAddress addr = parseAddressFromCmdConsole(param);
-						
-						if (addr == null) {
-							System.out.println("Can't get address from ”" + param + "”");
-							return;
-						}
-						
-						if (param.startsWith("add")) {
-							pool_manager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
-								
-								public void onNewConnectedNode(Node node) {
-									System.out.println("Node " + node + " is added sucessfully");
-								}
-								
-								public void onLocalServerConnection(InetSocketAddress server) {
-									System.out.println("You can't add local server to new node: " + server);
-								}
-								
-								public void alreadyConnectedNode(Node node) {
-									System.out.println("You can't add this node " + node + " because it's already added");
-								}
-							});
-						} else if (nodes_by_addr.containsKey(addr)) {
-							Node node = nodes_by_addr.get(addr);
-							if (param.startsWith("rm")) {
-								node.sendRequest(DisconnectRequest.class, null);
-							} else if (param.startsWith("close")) {
-								node.getChannelbucket().close(NodeCloseReason.USER_CONSOLE_ORDER, getClass());
-								remove(node);
-							} else if (param.startsWith("isopen")) {
-								System.out.println("Is now open: " + node.isOpenSocket());
-							} else {
-								System.out.println("Order ”" + param + "” is unknow");
-							}
-						} else {
-							System.out.println("Can't found node " + addr + " in current list. Please check with nl command");
-						}
-					});
+					public void onNewConnectedNode(Node node) {
+						System.out.println("Node " + node + " is added sucessfully");
+					}
 					
-					console.addOrder("gcnodes", "Garbage collector node list", "Purge closed nodes", getClass(), param -> {
-						purgeClosedNodes();
-					});
-					console.addOrder("closenodes", "Close all nodes", "Force to disconnect all connected nodes", getClass(), param -> {
-						sayToAllNodesToDisconnectMe(false);
-					});
-		*/
+					public void onLocalServerConnection(InetSocketAddress server) {
+						System.out.println("You can't add local server to new node: " + server);
+					}
+					
+					public void alreadyConnectedNode(Node node) {
+						System.out.println("You can't add this node " + node + " because it's already added");
+					}
+				});
+			} else if (node_list.contains(addr)) {
+				Node node = node_list.get(addr);
+				if (param.startsWith("rm")) {
+					node.sendRequest(DisconnectRequest.class, null);
+				} else if (param.startsWith("close")) {
+					node.close(getClass());
+					node_list.remove(node);
+				} else if (param.startsWith("isopen")) {
+					System.out.println("Is now open: " + node.isOpenSocket());
+				} else {
+					System.out.println("Order ”" + param + "” is unknow");
+				}
+			} else {
+				System.out.println("Can't found node " + addr + " in current list. Please check with nl command");
+			}
+		});
+		
+		console.addOrder("gcnodes", "Garbage collector node list", "Purge closed nodes", getClass(), param -> {
+			node_list.purgeClosedNodes();
+		});
+		console.addOrder("closenodes", "Close all nodes", "Force to disconnect all connected nodes", getClass(), param -> {
+			node_list.sayToAllNodesToDisconnectMe(false);
+		});
 		
 		console.addOrder("sch", "Activity scheduler", "Display the activated regular task list", getClass(), param -> {
 			if (node_scheduler.isEmpty()) {
@@ -208,22 +208,25 @@ public class PoolManager {
 			System.out.println("");
 		});
 		
-		// TODO serv console
-		// local_servers.forEach(action);
-		/*console.addOrder("srv", "Server status", "Display the server status", getClass(), param -> {
-			if (local_server.isOpen()) {
-				System.out.println("Server is open on " + local_server.getListen().getHostString() + ":" + local_server.getListen().getPort());
-			} else {
-				System.out.println("Server is closed");
-			}
+		console.addOrder("srv", "Servers status", "Display all servers status", getClass(), param -> {
+			TableList table = new TableList(3);
+			local_servers.forEach(local_server -> {
+				if (local_server.isOpen()) {
+					table.addRow("open", local_server.getListen().getHostString(), String.valueOf(local_server.getListen().getPort()));
+				} else {
+					table.addRow("CLOSED", local_server.getListen().getHostString(), String.valueOf(local_server.getListen().getPort()));
+				}
+			});
 		});
 		
-		console.addOrder("closesrv", "Close server", "Close this local server", getClass(), param -> {
-			if (local_server.isOpen() == false) {
-				System.out.println("Server is already closed");
-			}
-			local_server.waitToStop();
-		})*/;
+		console.addOrder("closesrv", "Close servers", "Close all opened servers", getClass(), param -> {
+			local_servers.forEach(local_server -> {
+				if (local_server.isOpen()) {
+					System.out.println("Close server " + local_server.getListen().getHostString() + "...");
+					local_server.waitToStop();
+				}
+			});
+		});
 		
 	}
 	
@@ -368,7 +371,7 @@ public class PoolManager {
 	}
 	
 	/**
-	 * @param param like "action addr:port"
+	 * @param param like "action addr" or "action addr port"
 	 */
 	private InetSocketAddress parseAddressFromCmdConsole(String param) {
 		int first_space = param.indexOf(" ");
@@ -378,12 +381,13 @@ public class PoolManager {
 		String full_addr = param.substring(first_space).trim();
 		int port = protocol.getDefaultTCPPort();
 		
-		int colon = full_addr.lastIndexOf(":");
-		if (colon > 1) {
+		int port_pos = full_addr.indexOf(" ");
+		if (port_pos > 1) {
 			try {
-				port = Integer.parseInt(full_addr.substring(colon + 1));
-				full_addr = full_addr.substring(0, colon);
+				port = Integer.parseInt(full_addr.substring(port_pos + 1));
+				full_addr = full_addr.substring(0, port_pos);
 			} catch (NumberFormatException e) {
+				log.debug("Can't get port value: " + param);
 			}
 		}
 		return new InetSocketAddress(full_addr, port);

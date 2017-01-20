@@ -71,7 +71,7 @@ public class Node {
 		server_delta_time = 0;
 	}
 	
-	public InetSocketAddress getSocketAddr() {// TODO maybe a port problem if used with an equals with another connexion
+	public InetSocketAddress getSocketAddr() {
 		return socket_addr;
 	}
 	
@@ -79,8 +79,8 @@ public class Node {
 		return channelbucket.isOpen();
 	}
 	
-	public void close(NodeCloseReason reason, Class<?> by) {
-		channelbucket.close(reason, by);
+	public void close(Class<?> by) {
+		channelbucket.close(by);
 	}
 	
 	public String toString() {
@@ -92,14 +92,14 @@ public class Node {
 	}
 	
 	/**
-	 * Via SocketAddr
+	 * Via Channelbucket
 	 */
 	public int hashCode() {
-		return this.getSocketAddr().hashCode();
+		return this.getChannelbucket().hashCode();
 	}
 	
 	/**
-	 * Via SocketAddr
+	 * Via SocketAddr and uuid
 	 */
 	public boolean equals(Object obj) {
 		if (this == obj) {
@@ -114,13 +114,19 @@ public class Node {
 		
 		Node other = (Node) obj;
 		
+		if (this.uuid_ref != null) {
+			if (this.uuid_ref.equals(other.uuid_ref) == false) {
+				return false;
+			}
+		}
+		
 		return this.getSocketAddr().equals(other.getSocketAddr());
 	}
 	
 	public void onErrorReturnFromNode(ErrorReturn error) {
 		if (error.isDisconnectme()) {
 			log.warn("Node (" + error.getNode() + ") say: \"" + error.getMessage() + "\"" + " by " + error.getCaller() + " at " + new Date(error.getDate()) + " and want to disconnect");
-			channelbucket.close(NodeCloseReason.EXTERNAL_ERROR_REQUEST_DISCONNECT, getClass());
+			channelbucket.close(getClass());
 		} else {
 			log.info("Node (" + error.getNode() + ") say: \"" + error.getMessage() + "\"" + " by " + error.getCaller() + " at " + new Date(error.getDate()));
 		}
@@ -144,8 +150,8 @@ public class Node {
 		try {
 			channelbucket.sendData(to_send, close_channel_after_send);
 		} catch (IOException e) {
-			log.error("Can't send datas to " + toString() + " > " + to_send.getRequestName());
-			channelbucket.close(NodeCloseReason.ERROR_DURING_SENDING, getClass());
+			log.error("Can't send datas to " + toString() + " > " + to_send.getRequestName() + ". Closing connection");
+			channelbucket.close(getClass());
 		}
 	}
 	
@@ -158,7 +164,7 @@ public class Node {
 		}
 		if (uuid_ref == null) {
 			uuid_ref = uuid;
-			pool_manager.getNodeList().updateUUID(this);// TODO is uuid is previousely set, disconnenct now
+			pool_manager.getNodeList().updateUUID(this);
 			log.debug("Set UUID for " + toString() + ", " + uuid);
 		}
 		check(uuid);
