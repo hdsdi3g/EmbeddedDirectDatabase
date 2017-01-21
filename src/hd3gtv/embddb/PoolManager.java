@@ -187,25 +187,24 @@ public class PoolManager {
 		});
 		
 		console.addOrder("sch", "Activity scheduler", "Display the activated regular task list", getClass(), param -> {
+			TableList table = new TableList(5);
+			
 			if (node_scheduler.isEmpty()) {
 				System.out.println("No regular tasks to display for nodes.");
 			} else {
-				System.out.println("Display " + node_scheduler.size() + " regular nodes task");
-				TableList table = new TableList(5);
 				node_scheduler.getAllScheduledTasks(table);
-				table.print();
 			}
-			System.out.println("");
 			
 			if (nodelist_scheduler.isEmpty()) {
+				if (node_scheduler.isEmpty()) {
+					System.out.println();
+				}
 				System.out.println("No regular tasks to display for nodelist.");
 			} else {
-				System.out.println("Display " + nodelist_scheduler.size() + " regular nodelist task");
-				TableList table = new TableList(5);
 				nodelist_scheduler.getAllScheduledTasks(table);
-				table.print();
 			}
-			System.out.println("");
+			
+			table.print();
 		});
 		
 		console.addOrder("srv", "Servers status", "Display all servers status", getClass(), param -> {
@@ -264,9 +263,9 @@ public class PoolManager {
 				SocketServer local_server = new SocketServer(this, listen);
 				local_server.start();
 				local_servers.add(local_server);
-				logresult.add(listen.getHostString() + ":" + listen.getPort());
+				logresult.add(listen.getHostString() + "/" + listen.getPort());
 			} catch (IOException e) {
-				log.error("Can't start server on " + listen.getHostString() + ":" + listen.getPort());
+				log.error("Can't start server on " + listen.getHostString() + "/" + listen.getPort());
 			}
 		});
 		
@@ -297,25 +296,17 @@ public class PoolManager {
 		}
 	}
 	
-	/**
-	 * @return false if listen == server OR listen all host address & server == me & listen port == server.port
-	 */
-	public boolean isNotThisServerAddress(InetSocketAddress server) {
-		boolean result = local_servers.stream().map(s -> {
-			return s.getListen();
-		}).anyMatch(a -> {
-			if (a == null) {
-				return false;
-			}
-			return a.equals(server);
+	public boolean isListenToThis(InetSocketAddress server) {
+		return getListenedServerAddress().anyMatch(addr -> {
+			return addr.equals(server);
 		});
-		// log.trace("Test addr: " + server + " " + result);
-		return result == false;
 	}
 	
 	public Stream<InetSocketAddress> getListenedServerAddress() {
 		return local_servers.stream().map(s -> {
 			return s.getListen();
+		}).filter(addr -> {
+			return addr != null;
 		});
 	}
 	
@@ -323,7 +314,7 @@ public class PoolManager {
 	 * @param callback_on_connection Always callback it, even if already exists.
 	 */
 	public void declareNewPotentialDistantServer(InetSocketAddress server, ConnectionCallback callback_on_connection) throws IOException {
-		if (isNotThisServerAddress(server) == false) {
+		if (isListenToThis(server)) {
 			callback_on_connection.onLocalServerConnection(server);
 			return;
 		}

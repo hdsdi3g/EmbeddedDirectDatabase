@@ -59,7 +59,7 @@ public class MainClass {
 					}
 					
 					public void onLocalServerConnection(InetSocketAddress server) {
-						log.warn("Can't add local server (" + server.getHostString() + ":" + server.getPort() + ") not node list. Check your configuration.");
+						log.warn("Can't add local server (" + server.getHostString() + "/" + server.getPort() + ") not node list. Check your configuration.");
 					}
 					
 					public void alreadyConnectedNode(Node node) {

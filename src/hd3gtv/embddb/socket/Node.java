@@ -84,7 +84,11 @@ public class Node {
 	}
 	
 	public String toString() {
-		return getSocketAddr().getHostName() + " " + getUUID() + " [" + provider.getClass().getSimpleName() + "]";
+		if (uuid_ref == null) {
+			return getSocketAddr().getHostString() + " port " + getSocketAddr().getPort() + " (no uuid), " + provider.getClass().getSimpleName();
+		} else {
+			return getSocketAddr().getHostString() + " port " + getSocketAddr().getPort() + ", " + uuid_ref + ", " + provider.getClass().getSimpleName();
+		}
 	}
 	
 	public ChannelBucket getChannelbucket() {
@@ -284,7 +288,7 @@ public class Node {
 	public void addToActualStatus(TableList table) {
 		String host = socket_addr.getHostString();
 		if (socket_addr.getPort() != pool_manager.getProtocol().getDefaultTCPPort()) {
-			host = host + ":" + socket_addr.getPort();
+			host = host + "/" + socket_addr.getPort();
 		}
 		String provider = this.provider.getClass().getSimpleName();
 		String isopen = "open";

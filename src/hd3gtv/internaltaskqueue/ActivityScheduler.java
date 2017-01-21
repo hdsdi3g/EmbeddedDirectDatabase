@@ -32,7 +32,6 @@ public class ActivityScheduler<T> {
 	private static Logger log = Logger.getLogger(ActivityScheduler.class);
 	
 	private ScheduledExecutorService scheduled_ex_service;
-	
 	private ArrayList<RegularTask> regular_tasks;
 	
 	public ActivityScheduler() {
@@ -147,18 +146,19 @@ public class ActivityScheduler<T> {
 	 * @param table len must equals 5
 	 */
 	public void getAllScheduledTasks(TableList table) {
-		table.addRow("Status", "Name", "Reference", "Period (sec)", "Last executed");
+		table.addRow("Reference", "Status", "Name", "Period (sec)", "Last executed");
 		regular_tasks.forEach(task -> {
 			String last = "(never)";
 			if (task.last_exec_date > 0) {
 				last = Loggers.dateLog(task.last_exec_date);
 			}
+			
 			if (task.future.isCancelled()) {
-				table.addRow("CANCELED", task.action.getScheduledActionName(), task.reference.getClass().getName(), String.valueOf((float) task.period / 1000f), last);
+				table.addRow(task.reference.getClass().getName(), "CANCELED", task.action.getScheduledActionName(), String.valueOf((float) task.period / 1000f), last);
 			} else if (task.future.isDone()) {
-				table.addRow("DONE", task.action.getScheduledActionName(), task.reference.getClass().getName(), String.valueOf((float) task.period / 1000f), last);
+				table.addRow(task.reference.getClass().getName(), "DONE", task.action.getScheduledActionName(), String.valueOf((float) task.period / 1000f), last);
 			} else {
-				table.addRow("WAIT", task.action.getScheduledActionName(), task.reference.getClass().getName(), String.valueOf((float) task.period / 1000f), last);
+				table.addRow(task.reference.getClass().getName(), "SCHEDULED", task.action.getScheduledActionName(), String.valueOf((float) task.period / 1000f), last);
 			}
 		});
 	}

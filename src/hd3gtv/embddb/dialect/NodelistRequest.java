@@ -19,9 +19,11 @@ package hd3gtv.embddb.dialect;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.UUID;
-import java.util.function.Consumer;
-import java.util.stream.Stream;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
@@ -39,8 +41,11 @@ public class NodelistRequest extends Request<Void> {
 	
 	private static Logger log = Logger.getLogger(NodelistRequest.class);
 	
+	private final AddressMaster address_master;
+	
 	public NodelistRequest(RequestHandler request_handler) {
 		super(request_handler);
+		address_master = pool_manager.getAddressMaster();
 	}
 	
 	public String getHandleName() {
@@ -50,29 +55,12 @@ public class NodelistRequest extends Request<Void> {
 	private static final JsonParser parser = new JsonParser();
 	
 	public void onRequest(RequestBlock block, Node source_node) {
-		
-		Consumer<InetSocketAddress> add_to_queue_and_connect_to = _addr -> {
-			pool_manager.getQueue().addToQueue(_addr, addr -> {
-				pool_manager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
-					
-					public void onNewConnectedNode(Node node) {
-						log.info("Autodiscover allowed to connect to " + node + " (provided by " + source_node + ")");
-					}
-					
-					public void onLocalServerConnection(InetSocketAddress server) {
-						log.warn("Autodiscover cant add this server (" + server + ")  as node (provided by " + source_node + ")");
-					}
-					
-					public void alreadyConnectedNode(Node node) {
-						log.info("Autodiscover cant add an already connected node (" + node + " provided by " + source_node + ")");
-					}
-				});
-			}, (error_addr, e) -> {
-				log.error("Autodiscover operation can't to connect to node via " + error_addr);
-			});
-		};
-		
 		try {
+			Predicate<InetAddress> non_local_address_filter = addr -> {
+				return AddressMaster.isLocalAddress(addr) == false;
+			};
+			List<InetAddress> current_host_routed_addr_list = address_master.getAddresses().filter(non_local_address_filter).collect(Collectors.toList());
+			
 			JsonArray list = parser.parse(block.getByName("json").getDatasAsString()).getAsJsonArray();
 			if (list.size() == 0) {
 				return;
@@ -121,52 +109,130 @@ public class NodelistRequest extends Request<Void> {
 				
 				return true;
 			}).forEach(server_node_addr_list -> {
-				Stream<InetAddress> current_host_addr_list = pool_manager.getAddressMaster().getAddresses();
+				/**
+				 * Prepare item list for discriminate/sort potential nodes by:
+				 * - this localhost connected
+				 * - distant address connected to a common host connected network.
+				 * - the rest of addresses
+				 */
 				
-				Stream<InetSocketAddress> server_node_routed_addr_list = server_node_addr_list.stream().filter(addr -> {
-					return AddressMaster.isLocalAddress(addr.getAddress()) == false;
-				});
+				List<DistantSocketEntry> distant_socket_entries = server_node_addr_list.stream().map(socket_addr -> {
+					return new DistantSocketEntry(socket_addr, current_host_routed_addr_list, source_node);
+				}).collect(Collectors.toList());
 				
-				Stream<InetAddress> current_host_routed_addr_list = current_host_addr_list.filter(addr -> {
-					return AddressMaster.isLocalAddress(addr) == false;
-				});
+				if (log.isTraceEnabled()) {
+					log.trace("Get distant_socket_entries list from " + source_node + ": " + distant_socket_entries);
+				}
 				
-				boolean is_this_current_host = server_node_routed_addr_list.anyMatch(dist_socket_addr -> {
-					return current_host_routed_addr_list.anyMatch(this_addr -> {
-						return this_addr.equals(dist_socket_addr.getAddress());
-					});
-				});
-				
-				if (is_this_current_host) {
+				if (distant_socket_entries.stream().anyMatch(dist_addr -> {
+					return dist_addr.is_this_current_host;
+				})) {
 					/**
 					 * There are some routed IPs who equals this host.
 					 * Communicate via localhost is possible.
 					 */
-					server_node_addr_list.forEach(add_to_queue_and_connect_to);
+					distant_socket_entries.stream().sorted((l, r) -> {
+						/**
+						 * Sort the localhost addresses in first
+						 */
+						if (l.is_local_addr == false && r.is_local_addr) {
+							return -1;
+						} else if (l.is_local_addr && r.is_local_addr == false) {
+							return 1;
+						}
+						return 0;
+					}).forEach(dist_addr -> {
+						dist_addr.addToQueueAndConnectTo();
+					});
 				} else {
-					/**
-					 * All non localhost IP are possible
-					 * Get all addr who are connected directy in this host networks
-					 */
-					Stream<InetAddress> server_node_routed_right_to_some_local_networks = pool_manager.getAddressMaster().getBestNetworkMatching(server_node_routed_addr_list.map(dist_socket_addr -> {
-						return dist_socket_addr.getAddress();
-					}));
-					
-					server_node_routed_addr_list.filter(dist_socket_addr -> {
-						return server_node_routed_right_to_some_local_networks.anyMatch(valided_addr -> {
-							return dist_socket_addr.getAddress().equals(valided_addr);
-						});
-					}).forEach(add_to_queue_and_connect_to);
-					
-					server_node_routed_addr_list.filter(dist_socket_addr -> {
-						return server_node_routed_right_to_some_local_networks.noneMatch(valided_addr -> {
-							return dist_socket_addr.getAddress().equals(valided_addr);
-						});
-					}).forEach(add_to_queue_and_connect_to);
+					distant_socket_entries.stream().filter(dist_addr -> {
+						/**
+						 * Remove localhost IPs
+						 */
+						return dist_addr.is_local_addr == false;
+					}).sorted((l, r) -> {
+						/**
+						 * Sort the connected to routed network addresses in first
+						 */
+						if (l.is_connected_to_routed_network == false && r.is_connected_to_routed_network) {
+							return -1;
+						} else if (l.is_connected_to_routed_network && r.is_connected_to_routed_network == false) {
+							return 1;
+						}
+						return 0;
+					}).forEach(dist_addr -> {
+						dist_addr.addToQueueAndConnectTo();
+					});
 				}
 			});
 		} catch (Exception e) {
 			log.warn("Error during autodiscover nodelist (from " + source_node + ")", e);
+		}
+	}
+	
+	private class DistantSocketEntry {
+		InetSocketAddress socket_addr;
+		boolean is_local_addr;
+		boolean is_this_current_host;
+		Node source_node;
+		boolean is_connected_to_routed_network;
+		
+		DistantSocketEntry(InetSocketAddress socket_addr, List<InetAddress> current_host_routed_addr_list, Node source_node) {
+			this.socket_addr = socket_addr;
+			if (socket_addr == null) {
+				throw new NullPointerException("\"socket_addr\" can't to be null");
+			}
+			this.source_node = source_node;
+			if (source_node == null) {
+				throw new NullPointerException("\"source_node\" can't to be null");
+			}
+			
+			is_local_addr = AddressMaster.isLocalAddress(socket_addr.getAddress());
+			
+			is_this_current_host = current_host_routed_addr_list.stream().anyMatch(this_addr -> {
+				return this_addr.equals(socket_addr.getAddress());
+			});
+			
+			if (is_local_addr == false && is_this_current_host == false) {
+				is_connected_to_routed_network = address_master.isInNetworkRange(socket_addr.getAddress());
+			} else {
+				is_connected_to_routed_network = false;
+			}
+		}
+		
+		public String toString() {
+			LinkedHashMap<String, Object> log = new LinkedHashMap<String, Object>();
+			log.put("socket_addr", socket_addr);
+			log.put("is_local_addr", is_local_addr);
+			log.put("is_this_current_host", is_this_current_host);
+			log.put("is_connected_to_routed_network", is_connected_to_routed_network);
+			return log.toString();
+		}
+		
+		private void addToQueueAndConnectTo() {
+			if (pool_manager.isListenToThis(socket_addr)) {
+				log.debug("Selected this node via " + socket_addr + ", don't declare new node");
+				return;
+			}
+			
+			pool_manager.getQueue().addToQueue(socket_addr, addr -> {
+				pool_manager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
+					
+					public void onNewConnectedNode(Node node) {
+						log.info("Autodiscover allowed to connect to " + node + " (provided by " + source_node + ")");
+					}
+					
+					public void onLocalServerConnection(InetSocketAddress server) {
+						log.warn("Autodiscover cant add this server (" + server + ")  as node (provided by " + source_node + ")");
+					}
+					
+					public void alreadyConnectedNode(Node node) {
+						log.info("Autodiscover cant add an already connected node (" + node + " provided by " + source_node + ")");
+					}
+				});
+			}, (error_addr, e) -> {
+				log.error("Autodiscover operation can't to connect to node via " + error_addr);
+			});
 		}
 	}
 	

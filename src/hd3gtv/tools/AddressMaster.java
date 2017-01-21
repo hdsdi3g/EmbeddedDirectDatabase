@@ -252,18 +252,16 @@ public class AddressMaster {
 	}
 	
 	/**
-	 * @return all candidates that can fit in any current networks.
+	 * @return true if can fit in any current connected networks.
 	 */
-	public Stream<InetAddress> getBestNetworkMatching(Stream<InetAddress> candidates) {
-		return candidates.filter(addr -> {
-			return all_addresses.stream().anyMatch(addr_entry -> {
-				try {
-					return addr_entry.isInNetworkRange(addr);
-				} catch (Exception e) {
-					log.error("Can't create CIDR for " + addr.toString(), e);
-					return false;
-				}
-			});
+	public boolean isInNetworkRange(InetAddress candidate) {
+		return all_addresses.stream().anyMatch(addr_entry -> {
+			try {
+				return addr_entry.isInNetworkRange(candidate);
+			} catch (Exception e) {
+				log.error("Can't create CIDR for " + candidate.toString(), e);
+				return false;
+			}
 		});
 	}
 	

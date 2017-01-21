@@ -17,6 +17,7 @@
 package hd3gtv.embddb.socket;
 
 import java.io.IOException;
+import java.net.BindException;
 import java.net.InetSocketAddress;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
@@ -36,7 +37,7 @@ public class SocketServer extends StoppableThread implements SocketProvider {
 	private InetSocketAddress listen;
 	
 	public SocketServer(PoolManager pool_manager, InetSocketAddress listen) throws IOException {
-		super("SocketServer", log);
+		super("SocketServer");
 		
 		this.pool_manager = pool_manager;
 		if (pool_manager == null) {
@@ -48,6 +49,15 @@ public class SocketServer extends StoppableThread implements SocketProvider {
 		}
 		
 		server = null;
+	}
+	
+	public String toString() {
+		if (server == null) {
+			return listen.getHostString() + " port " + listen.getPort() + " (no init)";
+		} else if (server.isOpen()) {
+			return listen.getHostString() + " port " + listen.getPort() + " (open)";
+		}
+		return listen.getHostString() + " port " + listen.getPort() + " (close)";
 	}
 	
 	public boolean isOpen() {
@@ -75,8 +85,11 @@ public class SocketServer extends StoppableThread implements SocketProvider {
 			server = AsynchronousServerSocketChannel.open();
 			// server.setOption(StandardSocketOptions.SO_REUSEADDR, true);
 			server.bind(listen);
+		} catch (BindException e) {
+			log.fatal("Socket " + listen.getHostString() + "/" + listen.getPort() + ", TCP, is already in use: can't open channel server");
+			return;
 		} catch (IOException e) {
-			log.fatal("Can't open channel server", e);
+			log.fatal("Can't open channel server " + toString(), e);
 			return;
 		}
 		
@@ -106,10 +119,15 @@ public class SocketServer extends StoppableThread implements SocketProvider {
 	
 	public void wantToStop() {
 		super.wantToStop();
-		try {
-			server.close();
-		} catch (IOException e) {
-			log.error("Can't close local server", e);
+		if (server != null) {
+			if (server.isOpen()) {
+				log.debug("Stop server " + this.listen.getHostString() + "/" + this.listen.getPort());
+				try {
+					server.close();
+				} catch (IOException e) {
+					log.error("Can't close local server", e);
+				}
+			}
 		}
 	}
 	

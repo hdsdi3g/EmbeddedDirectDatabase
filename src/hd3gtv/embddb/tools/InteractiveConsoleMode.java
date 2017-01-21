@@ -186,6 +186,7 @@ public class InteractiveConsoleMode {
 					System.out.println("Error during " + order);
 					e.printStackTrace(System.out);
 				}
+				System.out.println();
 			}
 		} catch (IOException e) {
 			log.error("Exit Console mode", e);
