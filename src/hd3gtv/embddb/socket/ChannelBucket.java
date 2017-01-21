@@ -82,6 +82,9 @@ class ChannelBucket {
 	 * @return distant IP address
 	 */
 	public String toString() {
+		if (remote_socket_addr == null) {
+			throw new NullPointerException("\"remote_socket_addr\" can't to be null");
+		}
 		return remote_socket_addr.getHostString() + ":" + remote_socket_addr.getPort();
 	}
 	

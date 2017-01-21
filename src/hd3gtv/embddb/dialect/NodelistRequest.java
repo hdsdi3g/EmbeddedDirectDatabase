@@ -16,8 +16,12 @@
 */
 package hd3gtv.embddb.dialect;
 
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import org.apache.log4j.Logger;
 
@@ -26,6 +30,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import hd3gtv.embddb.NodeList;
+import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.tools.AddressMaster;
@@ -45,6 +50,28 @@ public class NodelistRequest extends Request<Void> {
 	private static final JsonParser parser = new JsonParser();
 	
 	public void onRequest(RequestBlock block, Node source_node) {
+		
+		Consumer<InetSocketAddress> add_to_queue_and_connect_to = _addr -> {
+			pool_manager.getQueue().addToQueue(_addr, addr -> {
+				pool_manager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
+					
+					public void onNewConnectedNode(Node node) {
+						log.info("Autodiscover allowed to connect to " + node + " (provided by " + source_node + ")");
+					}
+					
+					public void onLocalServerConnection(InetSocketAddress server) {
+						log.warn("Autodiscover cant add this server (" + server + ")  as node (provided by " + source_node + ")");
+					}
+					
+					public void alreadyConnectedNode(Node node) {
+						log.info("Autodiscover cant add an already connected node (" + node + " provided by " + source_node + ")");
+					}
+				});
+			}, (error_addr, e) -> {
+				log.error("Autodiscover operation can't to connect to node via " + error_addr);
+			});
+		};
+		
 		try {
 			JsonArray list = parser.parse(block.getByName("json").getDatasAsString()).getAsJsonArray();
 			if (list.size() == 0) {
@@ -92,44 +119,51 @@ public class NodelistRequest extends Request<Void> {
 					return addr == null;
 				});
 				
-				/**
-				 * if any candidate listening addr is the same as this local server listen.
-				 */
-				return server_node_addr_list.stream().anyMatch(addr -> {
-					return pool_manager.getListenedServerAddress().anyMatch(listened_addr -> {
-						if (AddressMaster.isLocalAddress(listened_addr.getAddress())) {
-							return false;
-						}
-						return listened_addr.equals(addr);
-					});
-				}) == false;
+				return true;
 			}).forEach(server_node_addr_list -> {
-				// TODO final autodiscover
-				/**
-				 * Get if public addr == is me / no public addr
-				 * ========> check localhost addr is not me > add all localhost addr
-				 * ====else> void
-				 * else> add all addr (but not all localhost addr)
-				 */
+				Stream<InetAddress> current_host_addr_list = pool_manager.getAddressMaster().getAddresses();
 				
-				/*pool_manager.getQueue().addToQueue(addr, addr -> {
-				pool_manager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
-					
-					public void onNewConnectedNode(Node node) {
-						log.info("Autodiscover allowed to connect to " + node + " (provided by " + source_node + ")");
-					}
-					
-					public void onLocalServerConnection(InetSocketAddress server) {
-						log.warn("Autodiscover cant add this server (" + server + ")  as node (provided by " + source_node + ")");
-					}
-					
-					public void alreadyConnectedNode(Node node) {
-						log.info("Autodiscover cant add an already connected node (" + node + " provided by " + source_node + ")");
-					}
+				Stream<InetSocketAddress> server_node_routed_addr_list = server_node_addr_list.stream().filter(addr -> {
+					return AddressMaster.isLocalAddress(addr.getAddress()) == false;
 				});
-				}, (error_addr, e) -> {
-					log.error("Autodiscover operation can't to connect to node via " + error_addr);
-				});*/
+				
+				Stream<InetAddress> current_host_routed_addr_list = current_host_addr_list.filter(addr -> {
+					return AddressMaster.isLocalAddress(addr) == false;
+				});
+				
+				boolean is_this_current_host = server_node_routed_addr_list.anyMatch(dist_socket_addr -> {
+					return current_host_routed_addr_list.anyMatch(this_addr -> {
+						return this_addr.equals(dist_socket_addr.getAddress());
+					});
+				});
+				
+				if (is_this_current_host) {
+					/**
+					 * There are some routed IPs who equals this host.
+					 * Communicate via localhost is possible.
+					 */
+					server_node_addr_list.forEach(add_to_queue_and_connect_to);
+				} else {
+					/**
+					 * All non localhost IP are possible
+					 * Get all addr who are connected directy in this host networks
+					 */
+					Stream<InetAddress> server_node_routed_right_to_some_local_networks = pool_manager.getAddressMaster().getBestNetworkMatching(server_node_routed_addr_list.map(dist_socket_addr -> {
+						return dist_socket_addr.getAddress();
+					}));
+					
+					server_node_routed_addr_list.filter(dist_socket_addr -> {
+						return server_node_routed_right_to_some_local_networks.anyMatch(valided_addr -> {
+							return dist_socket_addr.getAddress().equals(valided_addr);
+						});
+					}).forEach(add_to_queue_and_connect_to);
+					
+					server_node_routed_addr_list.filter(dist_socket_addr -> {
+						return server_node_routed_right_to_some_local_networks.noneMatch(valided_addr -> {
+							return dist_socket_addr.getAddress().equals(valided_addr);
+						});
+					}).forEach(add_to_queue_and_connect_to);
+				}
 			});
 		} catch (Exception e) {
 			log.warn("Error during autodiscover nodelist (from " + source_node + ")", e);

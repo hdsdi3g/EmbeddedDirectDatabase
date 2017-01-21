@@ -228,6 +228,11 @@ public class PoolManager {
 			});
 		});
 		
+		console.addOrder("ip", "IP properties", "Show actual network properties", getClass(), param -> {
+			TableList table = new TableList(7);
+			addr_master.dump(table);
+			table.print();
+		});
 	}
 	
 	public UUID getUUIDRef() {

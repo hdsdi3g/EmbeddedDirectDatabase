@@ -58,13 +58,22 @@ public class SocketClient implements SocketProvider {
 	private class SocketConnect implements CompletionHandler<Void, Node> {
 		
 		public void completed(Void result, Node new_node) {
+			if (new_node == null) {
+				log.warn("\"new_node\" is null");
+				try {
+					channel.close();
+				} catch (IOException e) {
+					log.debug("Can't close channel after exception", e);
+				}
+				return;
+			}
 			log.info("Connected to " + new_node);
 			new_node.getChannelbucket().asyncRead();
 			callback_on_connection.accept(new_node);
 		}
 		
 		public void failed(Throwable e, Node new_node) {
-			log.warn("Can't create TCP Client to " + server + " (" + e.getMessage().trim() + ")");
+			log.warn("Can't create TCP Client to " + new_node + " (" + e.getMessage().trim() + ")");
 		}
 		
 	}
