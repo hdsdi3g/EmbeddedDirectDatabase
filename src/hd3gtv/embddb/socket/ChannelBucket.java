@@ -37,10 +37,10 @@ class ChannelBucket {
 	private final Node referer;
 	private final ByteBuffer buffer;
 	private final AsynchronousSocketChannel channel;
-	private InetSocketAddress remote_socket_addr;
 	private PressureMeasurement pressure_measurement;
+	private InetSocketAddress socket_addr;
 	
-	ChannelBucket(PoolManager pool_manager, Node referer, AsynchronousSocketChannel channel) throws IOException {
+	ChannelBucket(PoolManager pool_manager, Node referer, AsynchronousSocketChannel channel) {
 		this.pool_manager = pool_manager;
 		if (pool_manager == null) {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
@@ -58,7 +58,13 @@ class ChannelBucket {
 			throw new NullPointerException("\"channel\" can't to be null");
 		}
 		this.buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
-		remote_socket_addr = (InetSocketAddress) channel.getRemoteAddress();
+	}
+	
+	public InetSocketAddress getRemoteSocketAddr() throws IOException {
+		if (socket_addr == null) {
+			socket_addr = (InetSocketAddress) channel.getRemoteAddress();
+		}
+		return socket_addr;
 	}
 	
 	boolean isOpen() {
@@ -88,10 +94,12 @@ class ChannelBucket {
 	 * @return distant IP address
 	 */
 	public String toString() {
-		if (remote_socket_addr == null) {
-			throw new NullPointerException("\"remote_socket_addr\" can't to be null");
+		try {
+			return getRemoteSocketAddr().getHostString() + "/" + getRemoteSocketAddr().getPort();
+		} catch (IOException e) {
+			log.error("Can't get Remote socket addr for node " + referer, e);
+			return "(Invalid ChBucket)";
 		}
-		return remote_socket_addr.getHostString() + "/" + remote_socket_addr.getPort();
 	}
 	
 	void close(Class<?> by) {
@@ -143,7 +151,7 @@ class ChannelBucket {
 		buffer.flip();
 		
 		if (log.isTraceEnabled()) {
-			log.trace("Get " + result.length + " bytes encrypted");
+			log.trace("Set " + result.length + " bytes encrypted");
 		}
 		
 		pressure_measurement.onSendedBlock(result.length);

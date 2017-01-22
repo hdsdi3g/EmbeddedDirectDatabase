@@ -117,7 +117,7 @@ public final class RequestBlock {
 		
 		DataOutputStream dos = new DataOutputStream(byte_array_out_stream);
 		dos.write(Protocol.APP_SOCKET_HEADER_TAG);
-		dos.write(Protocol.VERSION);
+		dos.writeInt(Protocol.VERSION);
 		
 		/**
 		 * Start header name

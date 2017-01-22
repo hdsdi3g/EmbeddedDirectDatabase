@@ -43,14 +43,14 @@ public class Node {
 	
 	private PoolManager pool_manager;
 	private final ChannelBucket channelbucket;
-	private InetSocketAddress socket_addr;
 	private ArrayList<InetSocketAddress> local_server_node_addr;
 	
 	private UUID uuid_ref;
 	private long server_delta_time;
 	private SocketProvider provider;
+	private InetSocketAddress socket_addr;
 	
-	public Node(SocketProvider provider, PoolManager pool_manager, InetSocketAddress socket_addr, AsynchronousSocketChannel channel) throws IOException {
+	public Node(SocketProvider provider, PoolManager pool_manager, AsynchronousSocketChannel channel) {
 		this.provider = provider;
 		if (provider == null) {
 			throw new NullPointerException("\"provider\" can't to be null");
@@ -59,19 +59,26 @@ public class Node {
 		if (pool_manager == null) {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
-		this.socket_addr = socket_addr;
-		if (socket_addr == null) {
-			throw new NullPointerException("\"socket_addr\" can't to be null");
-		}
 		if (channel == null) {
 			throw new NullPointerException("\"channel\" can't to be null");
 		}
 		
 		channelbucket = new ChannelBucket(pool_manager, this, channel);
+		try {
+			socket_addr = channelbucket.getRemoteSocketAddr();
+		} catch (IOException e) {
+		}
 		server_delta_time = 0;
 	}
 	
 	public InetSocketAddress getSocketAddr() {
+		if (socket_addr == null) {
+			try {
+				socket_addr = channelbucket.getRemoteSocketAddr();
+			} catch (IOException e) {
+				log.debug("Can't get addr", e);
+			}
+		}
 		return socket_addr;
 	}
 	
@@ -286,9 +293,9 @@ public class Node {
 	 * Console usage.
 	 */
 	public void addToActualStatus(TableList table) {
-		String host = socket_addr.getHostString();
-		if (socket_addr.getPort() != pool_manager.getProtocol().getDefaultTCPPort()) {
-			host = host + "/" + socket_addr.getPort();
+		String host = getSocketAddr().getHostString();
+		if (getSocketAddr().getPort() != pool_manager.getProtocol().getDefaultTCPPort()) {
+			host = host + "/" + getSocketAddr().getPort();
 		}
 		String provider = this.provider.getClass().getSimpleName();
 		String isopen = "open";

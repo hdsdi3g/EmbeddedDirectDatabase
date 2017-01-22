@@ -52,7 +52,7 @@ public class SocketClient implements SocketProvider {
 		
 		channel = AsynchronousSocketChannel.open();
 		
-		channel.connect(server, new Node(this, pool_manager, server, channel), handler_connect);
+		channel.connect(server, new Node(this, pool_manager, channel), handler_connect);
 	}
 	
 	private class SocketConnect implements CompletionHandler<Void, Node> {

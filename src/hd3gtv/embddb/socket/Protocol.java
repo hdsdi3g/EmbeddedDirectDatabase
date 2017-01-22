@@ -91,9 +91,9 @@ public final class Protocol {
 	
 	private byte[] encryptDecrypt(byte[] datas, int pos, int len, int mode) throws GeneralSecurityException {
 		if (mode == Cipher.ENCRYPT_MODE) {
-			Hexview.tracelog(datas, 0, len, log, "Raw data input (crypted)");
-		} else {
 			Hexview.tracelog(datas, 0, len, log, "Raw data input (no crypted)");
+		} else {
+			Hexview.tracelog(datas, 0, len, log, "Raw data input (crypted)");
 		}
 		
 		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
@@ -101,9 +101,9 @@ public final class Protocol {
 		byte[] result = cipher.doFinal(datas, pos, len);
 		
 		if (mode == Cipher.ENCRYPT_MODE) {
-			Hexview.tracelog(result, 0, result.length, log, "Raw data output (decrypted)");
-		} else {
 			Hexview.tracelog(result, 0, result.length, log, "Raw data output (crypted)");
+		} else {
+			Hexview.tracelog(result, 0, result.length, log, "Raw data output (decrypted)");
 		}
 		return result;
 	}
