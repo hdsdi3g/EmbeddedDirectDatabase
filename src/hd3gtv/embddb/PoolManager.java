@@ -232,6 +232,15 @@ public class PoolManager {
 			addr_master.dump(table);
 			table.print();
 		});
+		
+		console.addOrder("stats", "Get last pressure measurement", "Get nodelist data stats", getClass(), param -> {
+			System.out.println("Node list: " + node_list.getPressureMeasurement().getActualStats(false));
+		});
+		
+		console.addOrder("resetstats", "Reset pressure measurement", "Get nodelist data stats and reset it", getClass(), param -> {
+			System.out.println("Node list: " + node_list.getPressureMeasurement().getActualStats(true));
+		});
+		
 	}
 	
 	public UUID getUUIDRef() {

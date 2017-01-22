@@ -27,6 +27,7 @@ import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.dialect.WantToCloseLink;
+import hd3gtv.tools.PressureMeasurement;
 
 class ChannelBucket {
 	
@@ -37,6 +38,7 @@ class ChannelBucket {
 	private final ByteBuffer buffer;
 	private final AsynchronousSocketChannel channel;
 	private InetSocketAddress remote_socket_addr;
+	private PressureMeasurement pressure_measurement;
 	
 	ChannelBucket(PoolManager pool_manager, Node referer, AsynchronousSocketChannel channel) throws IOException {
 		this.pool_manager = pool_manager;
@@ -46,6 +48,10 @@ class ChannelBucket {
 		this.referer = referer;
 		if (referer == null) {
 			throw new NullPointerException("\"referer\" can't to be null");
+		}
+		this.pressure_measurement = pool_manager.getNodeList().getPressureMeasurement();
+		if (pressure_measurement == null) {
+			throw new NullPointerException("\"pressure_measurement\" can't to be null");
 		}
 		this.channel = channel;
 		if (channel == null) {
@@ -110,6 +116,7 @@ class ChannelBucket {
 		if (log.isTraceEnabled()) {
 			log.trace("Prepare " + content.length + " bytes to decrypt");
 		}
+		pressure_measurement.onReceviedBlock(content.length);
 		
 		buffer.get(content, 0, content.length);
 		buffer.clear();
@@ -130,6 +137,7 @@ class ChannelBucket {
 		buffer.clear();
 		
 		byte[] result = pool_manager.getProtocol().encrypt(data, 0, data.length);
+		
 		buffer.put(result);
 		
 		buffer.flip();
@@ -137,6 +145,8 @@ class ChannelBucket {
 		if (log.isTraceEnabled()) {
 			log.trace("Get " + result.length + " bytes encrypted");
 		}
+		
+		pressure_measurement.onSendedBlock(result.length);
 	}
 	
 	/**
