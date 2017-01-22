@@ -90,20 +90,24 @@ public final class Protocol {
 	}
 	
 	private byte[] encryptDecrypt(byte[] datas, int pos, int len, int mode) throws GeneralSecurityException {
-		if (mode == Cipher.ENCRYPT_MODE) {
-			Hexview.tracelog(datas, 0, len, log, "Raw data input (no crypted)");
-		} else {
-			Hexview.tracelog(datas, 0, len, log, "Raw data input (crypted)");
+		if (log.isTraceEnabled()) {
+			if (mode == Cipher.ENCRYPT_MODE) {
+				log.trace("Raw data input (no crypted)" + Hexview.LINESEPARATOR + Hexview.tracelog(datas, pos, len));
+			} else {
+				log.trace("Raw data input (crypted)" + Hexview.LINESEPARATOR + Hexview.tracelog(datas, pos, len));
+			}
 		}
 		
 		Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding", "BC");
 		cipher.init(mode, skeySpec, salt);
 		byte[] result = cipher.doFinal(datas, pos, len);
 		
-		if (mode == Cipher.ENCRYPT_MODE) {
-			Hexview.tracelog(result, 0, result.length, log, "Raw data output (crypted)");
-		} else {
-			Hexview.tracelog(result, 0, result.length, log, "Raw data output (decrypted)");
+		if (log.isTraceEnabled()) {
+			if (mode == Cipher.ENCRYPT_MODE) {
+				log.trace("Raw data input (crypted)" + Hexview.LINESEPARATOR + Hexview.tracelog(result, 0, result.length));
+			} else {
+				log.trace("Raw data input (decrypted)" + Hexview.LINESEPARATOR + Hexview.tracelog(result, 0, result.length));
+			}
 		}
 		return result;
 	}

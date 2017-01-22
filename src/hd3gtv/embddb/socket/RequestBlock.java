@@ -56,7 +56,9 @@ public final class RequestBlock {
 	 * Import mode
 	 */
 	RequestBlock(Protocol protocol, byte[] request_raw_datas) throws IOException {
-		Hexview.tracelog(request_raw_datas, log, "Get raw datas");
+		if (log.isTraceEnabled()) {
+			log.trace("Get raw datas" + Hexview.LINESEPARATOR + Hexview.tracelog(request_raw_datas));
+		}
 		
 		ByteArrayInputStream inputstream_client_request = new ByteArrayInputStream(request_raw_datas);
 		
@@ -152,7 +154,10 @@ public final class RequestBlock {
 		dos.close();
 		
 		byte[] result = byte_array_out_stream.toByteArray();
-		Hexview.tracelog(result, log, "Make raw datas for " + request_name);
+		
+		if (log.isTraceEnabled()) {
+			log.trace("Make raw datas for " + request_name + Hexview.LINESEPARATOR + Hexview.tracelog(result));
+		}
 		
 		return result;
 	}

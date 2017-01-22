@@ -25,7 +25,6 @@ import java.util.Arrays;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
-import org.apache.log4j.Logger;
 
 /**
  * Do an hexdump like:
@@ -89,28 +88,22 @@ public class Hexview {
 		size = len;
 	}
 	
-	public static void display(byte[] datas, int pos, int len) {
+	/*public static void display(byte[] datas, int pos, int len) {
 		Hexview hv = new Hexview(datas, pos, len);
 		System.out.println(hv.getView());
-	}
+	}*/
 	
-	public static void display(byte[] datas) {
+	/*public static void display(byte[] datas) {
 		Hexview hv = new Hexview(datas, 0, datas.length);
 		System.out.println(hv.getView());
+	}*/
+	
+	public static String tracelog(byte[] datas) {
+		return new Hexview(datas, 0, datas.length).getView();
 	}
 	
-	public static void tracelog(byte[] datas, Logger log, String message) {
-		if (log.isTraceEnabled()) {
-			Hexview hv = new Hexview(datas, 0, datas.length);
-			log.trace(message + " len: " + datas.length + LINESEPARATOR + hv.getView());
-		}
-	}
-	
-	public static void tracelog(byte[] datas, int pos, int len, Logger log, String message) {
-		if (log.isTraceEnabled()) {
-			Hexview hv = new Hexview(datas, pos, len);
-			log.trace(message + " pos: " + pos + ", len: " + pos + LINESEPARATOR + hv.getView());
-		}
+	public static String tracelog(byte[] datas, int pos, int len) {
+		return new Hexview(datas, pos, len).getView();
 	}
 	
 	/**

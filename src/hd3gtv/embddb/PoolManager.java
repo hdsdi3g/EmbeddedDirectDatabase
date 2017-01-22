@@ -165,7 +165,7 @@ public class PoolManager {
 			} else if (node_list.contains(addr)) {
 				Node node = node_list.get(addr);
 				if (param.startsWith("rm")) {
-					node.sendRequest(DisconnectRequest.class, null);
+					node.sendRequest(DisconnectRequest.class, "Manual via console");
 				} else if (param.startsWith("close")) {
 					node.close(getClass());
 					node_list.remove(node);

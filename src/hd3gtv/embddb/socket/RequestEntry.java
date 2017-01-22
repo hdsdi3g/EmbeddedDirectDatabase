@@ -58,7 +58,9 @@ public final class RequestEntry {
 		date = entry.getTime();
 		name = entry.getName();
 		
-		Hexview.tracelog(datas, 0, len, log, "Get datas from zip: \"" + name + "\"");
+		if (log.isTraceEnabled()) {
+			log.trace("Get datas from zip: \"" + name + "\"" + Hexview.LINESEPARATOR + Hexview.tracelog(datas, 0, len));
+		}
 	}
 	
 	public byte[] getDatas() {
@@ -82,7 +84,9 @@ public final class RequestEntry {
 	}
 	
 	void toZip(ZipOutputStream zipdatas) throws IOException {
-		Hexview.tracelog(datas, 0, len, log, "Add entry to Zip: \"" + name + "\"");
+		if (log.isTraceEnabled()) {
+			log.trace("Add entry to Zip: \"" + name + "\"" + Hexview.LINESEPARATOR + Hexview.tracelog(datas, 0, len));
+		}
 		
 		ZipEntry entry = new ZipEntry(name);
 		entry.setTime(date);

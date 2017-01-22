@@ -48,6 +48,13 @@
 		<level value="INFO" />
 	</logger>
 	
+	<logger name="hd3gtv.embddb.socket.RequestEntry">			<level value="DEBUG" /></logger>
+	<logger name="hd3gtv.embddb.socket.RequestBlock">			<level value="DEBUG" /></logger>
+	<logger name="hd3gtv.embddb.socket.Protocol">				<level value="DEBUG" /></logger>
+	<logger name="hd3gtv.embddb.socket.SocketHandlerReader">	<level value="DEBUG" /></logger>
+	<logger name="hd3gtv.embddb.socket.SocketHandlerWriter">	<level value="DEBUG" /></logger>
+	<logger name="hd3gtv.embddb.socket.ChannelBucket">			<level value="DEBUG" /></logger>
+	
 	<!-- Global/defalut definition, and level filter for some lib like Astyanax, Elasticsearch, Play... -->
 	<root>
 		<priority value="WARN" />
