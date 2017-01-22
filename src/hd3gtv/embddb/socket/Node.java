@@ -73,11 +73,14 @@ public class Node {
 	
 	public InetSocketAddress getSocketAddr() {
 		if (socket_addr == null) {
-			try {
-				socket_addr = channelbucket.getRemoteSocketAddr();
-			} catch (IOException e) {
-				log.debug("Can't get addr", e);
-			}
+			if (provider instanceof SocketClient) {
+				socket_addr = ((SocketClient) provider).getDistantServerAddr();
+			} else
+				try {
+					socket_addr = channelbucket.getRemoteSocketAddr();
+				} catch (IOException e) {
+					log.debug("Can't get addr", e);
+				}
 		}
 		return socket_addr;
 	}

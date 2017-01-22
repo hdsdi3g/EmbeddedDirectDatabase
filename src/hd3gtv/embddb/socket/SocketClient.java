@@ -30,16 +30,16 @@ public class SocketClient implements SocketProvider {
 	
 	private static final Logger log = Logger.getLogger(SocketClient.class);
 	
-	// private InetSocketAddress server;
 	private AsynchronousSocketChannel channel;
 	private SocketConnect handler_connect;
 	private Consumer<Node> callback_on_connection;
+	private InetSocketAddress distant_server_addr;
 	
 	public SocketClient(PoolManager pool_manager, InetSocketAddress server, Consumer<Node> callback_on_connection) throws IOException {
 		if (pool_manager == null) {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
-		// this.server = server;
+		this.distant_server_addr = server;
 		if (server == null) {
 			throw new NullPointerException("\"server\" can't to be null");
 		}
@@ -76,6 +76,10 @@ public class SocketClient implements SocketProvider {
 			log.warn("Can't create TCP Client to " + new_node + " " + e.getMessage().trim());
 		}
 		
+	}
+	
+	InetSocketAddress getDistantServerAddr() {
+		return distant_server_addr;
 	}
 	
 }
