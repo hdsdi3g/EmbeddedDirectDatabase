@@ -14,14 +14,14 @@
  * Copyright (C) hdsdi3g for hd3g.tv 22 janv. 2017
  * 
 */
-package hd3gtv.tools;
+package hd3gtv.embddb.tools;
 
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class PressureMeasurement {
+public class PressureMeasurement { // TODO transform to a generic API: separe send/transfert
 	
 	private long start_time;
 	private AtomicLong recevied_datas;
@@ -55,7 +55,7 @@ public class PressureMeasurement {
 		return r;
 	}
 	
-	public void reset() {
+	private void reset() {
 		recevied_datas.set(0);
 		sended_datas.set(0);
 		recevied_blocks.set(0);
@@ -126,7 +126,7 @@ public class PressureMeasurement {
 			sb.append(" blk/sec) for ");
 			sb.append(df.format(last_recevied_datas));
 			sb.append(" kB (");
-			sb.append(df.format(getReceviedDatasSpeed()));
+			sb.append(df.format(getReceviedDatasSpeed() / 1000d));
 			sb.append(" kB/sec) and sended ");
 			sb.append(Math.round(last_sended_blocks));
 			sb.append(" blk (");
@@ -134,7 +134,7 @@ public class PressureMeasurement {
 			sb.append(" blk/sec) for ");
 			sb.append(df.format(last_sended_datas));
 			sb.append(" kB (");
-			sb.append(df.format(getSendedDatasSpeed()));
+			sb.append(df.format(getSendedDatasSpeed() / 1000d));
 			sb.append(" kB/sec)");
 			return sb.toString();
 		}

@@ -18,4 +18,6 @@ package hd3gtv.embddb.socket;
 
 public interface SocketProvider {
 	
+	public String getTypeName();
+	
 }

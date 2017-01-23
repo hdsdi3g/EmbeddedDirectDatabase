@@ -82,4 +82,7 @@ public class SocketClient implements SocketProvider {
 		return distant_server_addr;
 	}
 	
+	public String getTypeName() {
+		return "Local client to distant server";
+	}
 }

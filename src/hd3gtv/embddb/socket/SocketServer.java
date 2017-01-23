@@ -131,4 +131,8 @@ public class SocketServer extends StoppableThread implements SocketProvider {
 		}
 	}
 	
+	public String getTypeName() {
+		return "Distant client to local server";
+	}
+	
 }

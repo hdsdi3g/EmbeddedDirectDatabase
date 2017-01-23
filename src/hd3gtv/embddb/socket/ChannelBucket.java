@@ -27,7 +27,7 @@ import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.dialect.WantToCloseLink;
-import hd3gtv.tools.PressureMeasurement;
+import hd3gtv.embddb.tools.PressureMeasurement;
 
 class ChannelBucket {
 	
@@ -37,7 +37,7 @@ class ChannelBucket {
 	private final Node referer;
 	private final ByteBuffer buffer;
 	private final AsynchronousSocketChannel channel;
-	private PressureMeasurement pressure_measurement;
+	private PressureMeasurement pressure_measurement;// TODO get process time
 	private InetSocketAddress socket_addr;
 	
 	ChannelBucket(PoolManager pool_manager, Node referer, AsynchronousSocketChannel channel) {

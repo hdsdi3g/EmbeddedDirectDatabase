@@ -103,7 +103,7 @@ public class ActivityScheduler<T> {
 			RegularTask ref = this;
 			
 			future = scheduled_ex_service.scheduleAtFixedRate(() -> {
-				log.debug("Do regular process \"" + action.getScheduledActionName() + "\" for " + reference.getClass().getSimpleName());
+				log.trace("Do regular process \"" + action.getScheduledActionName() + "\" for " + reference.getClass().getSimpleName());
 				try {
 					procedure.process();
 					last_exec_date = System.currentTimeMillis();

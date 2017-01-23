@@ -299,6 +299,8 @@ public class PoolManager {
 			s.waitToStop();
 		});
 		
+		queue.waitToEndCurrentList();
+		
 		try {
 			Runtime.getRuntime().removeShutdownHook(shutdown_hook);
 		} catch (IllegalStateException e) {

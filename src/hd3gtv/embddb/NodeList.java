@@ -36,9 +36,9 @@ import hd3gtv.embddb.dialect.HelloRequest;
 import hd3gtv.embddb.dialect.NodelistRequest;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
+import hd3gtv.embddb.tools.PressureMeasurement;
 import hd3gtv.internaltaskqueue.ActivityScheduledAction;
 import hd3gtv.internaltaskqueue.Procedure;
-import hd3gtv.tools.PressureMeasurement;
 
 public class NodeList {
 	
@@ -153,6 +153,10 @@ public class NodeList {
 			nodes_by_addr.remove(node.getSocketAddr());
 		}
 		
+		if (log.isDebugEnabled()) {
+			log.debug("Full node list: " + nodes);
+		}
+		
 		pool_manager.getNode_scheduler().remove(node);
 	}
 	
@@ -166,7 +170,7 @@ public class NodeList {
 			}
 		}
 		synchronized (lock) {
-			log.debug("Add node " + node);
+			log.info("Add node " + node);
 			
 			autodiscover_can_be_remake.set(true);
 			nodes_by_addr.put(node.getSocketAddr(), node);
@@ -176,6 +180,10 @@ public class NodeList {
 			nodes.add(node);
 		}
 		pool_manager.getRequestHandler().getRequestByClass(HelloRequest.class).sendRequest(null, node);
+		
+		if (log.isDebugEnabled()) {
+			log.debug("Full node list: " + nodes);
+		}
 		
 		return true;
 	}

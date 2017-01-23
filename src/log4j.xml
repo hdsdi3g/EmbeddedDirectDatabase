@@ -54,6 +54,7 @@
 	<logger name="hd3gtv.embddb.socket.SocketHandlerReader">	<level value="DEBUG" /></logger>
 	<logger name="hd3gtv.embddb.socket.SocketHandlerWriter">	<level value="DEBUG" /></logger>
 	<logger name="hd3gtv.embddb.socket.ChannelBucket">			<level value="DEBUG" /></logger>
+	<logger name="hd3gtv.internaltaskqueue.ActivityScheduler">	<level value="DEBUG" /></logger>
 	
 	<!-- Global/defalut definition, and level filter for some lib like Astyanax, Elasticsearch, Play... -->
 	<root>

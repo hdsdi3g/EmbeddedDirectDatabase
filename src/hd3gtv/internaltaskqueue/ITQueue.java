@@ -31,6 +31,8 @@ public class ITQueue {
 	private ArrayList<Executor> executors;
 	private int executor_count;
 	
+	// TODO compute PM stats
+	
 	public ITQueue(int executor_count) {
 		pending_tasks = new LinkedList<>();
 		executors = new ArrayList<>();
