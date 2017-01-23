@@ -284,12 +284,12 @@ public class Node {
 			log.trace("Node " + toString() + " delay: " + server_delta_time + " ms before, now is " + new_delay + " ms");
 		}
 		
-		server_delta_time = new_delay;
-		
 		if ((server_delta_time != new_delay) && (Math.abs(server_delta_time) > MAX_TOLERANCE_DELTA_TIME_WITH_SERVER)) {
 			log.warn("Big delay with node " + toString() + ": " + server_delta_time + " ms. Please check the NTP setup with this host and the node ! In the meantime, this node will be disconned.");
 			throw new IOException("Invalid node delay (" + Math.abs(server_delta_time) + ")");
 		}
+		
+		server_delta_time = new_delay;
 	}
 	
 	/**

@@ -119,16 +119,23 @@ public class PressureMeasurement {
 			StringBuilder sb = new StringBuilder();
 			sb.append("The last ");
 			sb.append(df.format(duration));
-			sb.append(" sec: ");
-			sb.append("recevied ");
-			sb.append(df.format(getReceviedBlocksSpeed() / 1000d));
-			sb.append(" blk/sec for ");
+			sb.append(" sec: recevied ");
+			sb.append(Math.round(last_recevied_blocks));
+			sb.append(" blk (");
+			sb.append(df.format(getReceviedBlocksSpeed()));
+			sb.append(" blk/sec) for ");
+			sb.append(df.format(last_recevied_datas));
+			sb.append(" kB (");
 			sb.append(df.format(getReceviedDatasSpeed()));
-			sb.append(" kB and sended ");
-			sb.append(df.format(getSendedBlocksSpeed() / 1000d));
-			sb.append(" blk/sec for ");
+			sb.append(" kB/sec) and sended ");
+			sb.append(Math.round(last_sended_blocks));
+			sb.append(" blk (");
+			sb.append(df.format(getSendedBlocksSpeed()));
+			sb.append(" blk/sec) for ");
+			sb.append(df.format(last_sended_datas));
+			sb.append(" kB (");
 			sb.append(df.format(getSendedDatasSpeed()));
-			sb.append(" kB");
+			sb.append(" kB/sec)");
 			return sb.toString();
 		}
 		
