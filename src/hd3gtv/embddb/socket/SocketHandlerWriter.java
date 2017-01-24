@@ -30,7 +30,7 @@ class SocketHandlerWriter implements SocketHandler {
 	
 	public void completed(Integer size, ChannelBucket bucket) {
 		showLogs(size, bucket);
-		bucket.asyncRead();
+		bucket.asyncRead();// FIXME why delay before read ?
 	}
 	
 	public void failed(Throwable e, ChannelBucket bucket) {

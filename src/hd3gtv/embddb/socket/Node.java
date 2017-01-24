@@ -207,6 +207,12 @@ public class Node {
 		if (uuid.equals(pool_manager.getUUIDRef())) {
 			throw new IOException("Invalid UUID for " + toString() + ", it's the same as local manager ! (" + uuid_ref.toString() + ")");
 		}
+		Node n = pool_manager.getNodeList().get(uuid);
+		if (n == null) {
+			throw new IOException("This node " + toString() + " was not declared in node_list");
+		} else if (equals(n) == false) {
+			throw new IOException("Another node (" + n.toString() + ") was previousely add with this UUID, " + toString());
+		}
 	}
 	
 	public boolean isUUIDSet() {

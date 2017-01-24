@@ -24,8 +24,8 @@ class SocketHandlerReader implements SocketHandler {
 	
 	public void completed(Integer size, ChannelBucket bucket) {
 		if (size < 1) {
-			log.debug("Get empty datas from " + bucket.toString() + ", close socket");
-			bucket.close(getClass());
+			log.debug("Get empty datas from " + bucket.toString());
+			// bucket.close(getClass());
 			return;
 		}
 		

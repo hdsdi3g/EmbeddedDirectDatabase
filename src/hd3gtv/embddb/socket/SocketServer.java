@@ -83,7 +83,7 @@ public class SocketServer extends StoppableThread implements SocketProvider {
 	public void run() {
 		try {
 			server = AsynchronousServerSocketChannel.open();
-			// server.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+			// TODO see http://niklasschlimm.blogspot.fr/2012/05/java-7-9-nio2-file-channels-on-test.html
 			server.bind(listen);
 		} catch (BindException e) {
 			log.fatal("Socket " + listen.getHostString() + "/" + listen.getPort() + ", TCP, is already in use: can't open channel server");

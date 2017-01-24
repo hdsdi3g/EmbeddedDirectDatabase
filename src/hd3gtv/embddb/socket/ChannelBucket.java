@@ -102,6 +102,27 @@ class ChannelBucket {
 	
 	void asyncWrite(boolean close_channel_after_send) {
 		channel.write(buffer, this, pool_manager.getProtocol().getHandlerWriter(close_channel_after_send));
+		/*try {
+			channel.shutdownInput();
+		} catch (Exception e) {
+			log.debug("Can't temporary close reader", e);
+		}*/
+		
+		/*if (close_channel_after_send) {
+			try {
+				// channel.shutdownOutput();
+				
+				int size = channel.write(buffer).get(5, TimeUnit.SECONDS);
+				log.debug("Send close message, size " + size);// FIXME send before close don't works
+				
+			} catch (Exception e) {
+				log.debug("Can't send last message before close", e);
+			}
+			// buffer.clear();
+			// close(getClass());
+			// channel.write(buffer, this, pool_manager.getProtocol().getHandlerWriter(true));
+		} else {
+		}*/
 	}
 	
 	/**
