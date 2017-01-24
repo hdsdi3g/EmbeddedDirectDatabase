@@ -171,6 +171,17 @@ public class PoolManager {
 				});
 			} else {
 				Node node = node_list.get(addr);
+				if (node == null) {
+					List<Node> search_nodes = node_list.get(addr.getAddress());
+					if (search_nodes.isEmpty()) {
+						System.out.println("Can't found node " + addr + " in current list. Please check with nl command");
+					} else if (search_nodes.size() > 1) {
+						System.out.println("Too many nodes on the " + addr + " in current list. Please check with nl command and enter TCP port");
+					} else {
+						node = search_nodes.get(0);
+					}
+				}
+				
 				if (node != null) {
 					if (param.startsWith("rm")) {
 						node.sendRequest(DisconnectRequest.class, "Manual via console");
@@ -430,7 +441,7 @@ public class PoolManager {
 	}
 	
 	/**
-	 * @param param like "action addr" or "action addr port"
+	 * @param param like "action addr" or "action addr port" or "action addr/port" or "action addr:port"
 	 */
 	private InetSocketAddress parseAddressFromCmdConsole(String param) {
 		int first_space = param.indexOf(" ");
@@ -441,6 +452,12 @@ public class PoolManager {
 		int port = protocol.getDefaultTCPPort();
 		
 		int port_pos = full_addr.indexOf(" ");
+		if (port_pos == -1) {
+			port_pos = full_addr.indexOf("/");
+		}
+		if (port_pos == -1) {
+			port_pos = full_addr.lastIndexOf(":");
+		}
 		if (port_pos > 1) {
 			try {
 				port = Integer.parseInt(full_addr.substring(port_pos + 1));

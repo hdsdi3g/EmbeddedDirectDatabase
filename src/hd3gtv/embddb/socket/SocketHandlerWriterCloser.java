@@ -16,10 +16,15 @@
 */
 package hd3gtv.embddb.socket;
 
+import org.apache.log4j.Logger;
+
 class SocketHandlerWriterCloser extends SocketHandlerWriter {
+	
+	private static Logger log = Logger.getLogger(SocketHandlerWriterCloser.class);
 	
 	public void completed(Integer size, ChannelBucket bucket) {
 		showLogs(size, bucket);
+		log.info("Manual close socket after send datas to other node " + bucket.toString());
 		bucket.close(getClass());
 	}
 	

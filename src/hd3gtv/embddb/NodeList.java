@@ -16,6 +16,7 @@
 */
 package hd3gtv.embddb;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,6 +25,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.log4j.Logger;
@@ -87,6 +89,34 @@ public class NodeList {
 		}
 		
 		return n;
+	}
+	
+	/**
+	 * Check if nodes are already open, else close it.
+	 * @return empty if emtpy
+	 */
+	public List<Node> get(InetAddress addr) {
+		if (addr == null) {
+			throw new NullPointerException("\"addr\" can't to be null");
+		}
+		
+		List<Node> result = nodes.stream().filter(n -> {
+			InetSocketAddress n_addr = n.getSocketAddr();
+			if (n_addr == null) {
+				return false;
+			}
+			return n_addr.getAddress().equals(addr);
+		}).collect(Collectors.toList());
+		
+		result.removeIf(n -> {
+			if (n.isOpenSocket() == false) {
+				remove(n);
+				return true;
+			}
+			return false;
+		});
+		
+		return result;
 	}
 	
 	/**
