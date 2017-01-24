@@ -49,7 +49,6 @@ public class Node {
 	private long server_delta_time;
 	private SocketProvider provider;
 	private InetSocketAddress socket_addr;
-	private boolean out_of_time;
 	
 	public Node(SocketProvider provider, PoolManager pool_manager, AsynchronousSocketChannel channel) {
 		this.provider = provider;
@@ -194,8 +193,6 @@ public class Node {
 		}
 		if (uuid_ref == null) {
 			uuid_ref = uuid;
-			pool_manager.getNodeList().updateUUID(this);
-			log.debug("Set UUID for " + toString() + ", " + uuid);
 		}
 		check(uuid);
 	}

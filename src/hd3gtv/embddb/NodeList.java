@@ -16,11 +16,11 @@
 */
 package hd3gtv.embddb;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -43,17 +43,13 @@ public class NodeList {
 	
 	private static Logger log = Logger.getLogger(NodeList.class);
 	
-	private final Object lock = new Object();
-	
+	/**
+	 * synchronizedList
+	 */
 	private List<Node> nodes;
-	private HashMap<InetSocketAddress, Node> nodes_by_addr;// TODO remove, remplace by stream
-	private HashMap<UUID, Node> nodes_by_uuid;// TODO remove, remplace by stream
+	
 	private AtomicBoolean autodiscover_can_be_remake = null;
 	private PoolManager pool_manager;
-	
-	// TODO regular check if nodelist is empty and call bootstrap
-	
-	// TODO add IsItJudicious check for regular tasks
 	
 	NodeList(PoolManager pool_manager) {
 		this.pool_manager = pool_manager;
@@ -61,26 +57,32 @@ public class NodeList {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
 		
-		nodes = new ArrayList<>();
-		nodes_by_addr = new HashMap<>();
-		nodes_by_uuid = new HashMap<>();
+		nodes = Collections.synchronizedList(new ArrayList<>());
 		
 		autodiscover_can_be_remake = new AtomicBoolean(true);
 	}
 	
 	/**
-	 * Check if node is already open.
+	 * Check if node is already open, else close it.
+	 * @return null if empty
 	 */
 	public Node get(InetSocketAddress addr) {
-		if (nodes_by_addr.containsKey(addr) == false) {
+		if (addr == null) {
+			throw new NullPointerException("\"addr\" can't to be null");
+		}
+		
+		Optional<Node> o_node = nodes.stream().filter(n -> {
+			return addr.equals(n.getSocketAddr());
+		}).findFirst();
+		
+		if (o_node.isPresent() == false) {
 			return null;
 		}
-		Node n = nodes_by_addr.get(addr);
+		
+		Node n = o_node.get();
 		
 		if (n.isOpenSocket() == false) {
-			synchronized (lock) {
-				remove(n);
-			}
+			remove(n);
 			return null;
 		}
 		
@@ -88,60 +90,40 @@ public class NodeList {
 	}
 	
 	/**
-	 * Check if node is already open.
+	 * Check if node is already open, else close it.
+	 * @return null if empty
 	 */
-	public boolean contains(InetSocketAddress addr) {
-		if (nodes_by_addr.containsKey(addr) == false) {
-			return false;
+	public Node get(UUID uuid) {
+		if (uuid == null) {
+			throw new NullPointerException("\"uuid\" can't to be null");
 		}
-		return get(addr) != null;
-	}
-	
-	/**
-	 * Only open and set UUID nodes.
-	 */
-	public boolean contains(UUID uuid) {
-		return nodes_by_uuid.containsKey(uuid);
+		
+		Optional<Node> o_node = nodes.stream().filter(n -> {
+			return n.equalsThisUUID(uuid);
+		}).findFirst();
+		
+		if (o_node.isPresent() == false) {
+			return null;
+		}
+		
+		Node n = o_node.get();
+		
+		if (n.isOpenSocket() == false) {
+			remove(n);
+			return null;
+		}
+		
+		return n;
 	}
 	
 	public void purgeClosedNodes() {
-		synchronized (lock) {
-			nodes.removeIf(n -> {
-				if (n.isOpenSocket()) {
-					return false;
-				}
-				nodes_by_addr.remove(n.getSocketAddr());
-				nodes_by_uuid.remove(n.getUUID());
-				autodiscover_can_be_remake.set(true);
-				return true;
-			});
-			
-			if (nodes.size() != nodes_by_addr.size()) {
-				log.debug("Not the same lists size !");
-				nodes_by_addr.clear();
-				nodes_by_uuid.clear();
-				
-				nodes.forEach(node -> {
-					nodes_by_addr.put(node.getSocketAddr(), node);
-					if (node.getUUID() != null) {
-						nodes_by_uuid.put(node.getUUID(), node);
-					}
-				});
-			} else {
-				nodes.forEach(node -> {
-					if (nodes_by_addr.containsKey(node.getSocketAddr()) == false) {
-						log.debug("Missing " + node + " in nodes_by_addr");
-						nodes_by_addr.put(node.getSocketAddr(), node);
-					}
-					if (node.getUUID() != null) {
-						if (nodes_by_uuid.containsKey(node.getUUID()) == false) {
-							log.debug("Missing " + node + " in nodes_by_uuid");
-							nodes_by_uuid.put(node.getUUID(), node);
-						}
-					}
-				});
+		nodes.removeIf(n -> {
+			if (n.isOpenSocket()) {
+				return false;
 			}
-		}
+			autodiscover_can_be_remake.set(true);
+			return true;
+		});
 		
 		if (nodes.isEmpty()) {
 			pool_manager.connectToBootstrapPotentialNodes("Opened nodes list empty after purge");
@@ -149,14 +131,10 @@ public class NodeList {
 	}
 	
 	public void remove(Node node) {
-		synchronized (lock) {
-			log.info("Remove node " + node);
-			
-			autodiscover_can_be_remake.set(true);
-			nodes.remove(node);
-			nodes_by_uuid.remove(node.getUUID());
-			nodes_by_addr.remove(node.getSocketAddr());
-		}
+		log.info("Remove node " + node);
+		
+		autodiscover_can_be_remake.set(true);
+		nodes.remove(node);
 		
 		if (log.isDebugEnabled()) {
 			log.debug("Full node list: " + nodes);
@@ -178,16 +156,9 @@ public class NodeList {
 				return false;
 			}
 		}
-		synchronized (lock) {
-			log.info("Add node " + node);
-			
-			autodiscover_can_be_remake.set(true);
-			nodes_by_addr.put(node.getSocketAddr(), node);
-			if (node.getUUID() != null) {
-				nodes_by_uuid.put(node.getUUID(), node);
-			}
-			nodes.add(node);
-		}
+		log.info("Add node " + node);
+		autodiscover_can_be_remake.set(true);
+		nodes.add(node);
 		pool_manager.getRequestHandler().getRequestByClass(HelloRequest.class).sendRequest(null, node);
 		
 		if (log.isDebugEnabled()) {
@@ -197,33 +168,17 @@ public class NodeList {
 		return true;
 	}
 	
-	public void updateUUID(Node node) throws IOException {
-		if (node.getUUID() == null) {
-			throw new NullPointerException("Node uuid can't to be null for " + node);
-		}
-		UUID newuuid = node.getUUID();
-		if (nodes_by_uuid.containsKey(newuuid) == false) {
-			synchronized (lock) {
-				nodes_by_uuid.put(newuuid, node);
-			}
-		} else if (node.equals(nodes_by_uuid.get(newuuid)) == false) {
-			throw new IOException("Node UUID for " + node + " was previousely added to another node (" + nodes_by_uuid.get(newuuid) + ") entry. So it can't declare twice the same node !");
-		}
-	}
-	
 	/**
 	 * @return array of objects (Node.getAutodiscoverIDCard())
 	 */
 	public JsonArray makeAutodiscoverList() {
 		JsonArray autodiscover_list = new JsonArray();
-		synchronized (lock) {
-			nodes.forEach(n -> {
-				JsonObject jo = n.getAutodiscoverIDCard();
-				if (jo != null) {
-					autodiscover_list.add(jo);
-				}
-			});
-		}
+		nodes.forEach(n -> {
+			JsonObject jo = n.getAutodiscoverIDCard();
+			if (jo != null) {
+				autodiscover_list.add(jo);
+			}
+		});
 		return autodiscover_list;
 	}
 	

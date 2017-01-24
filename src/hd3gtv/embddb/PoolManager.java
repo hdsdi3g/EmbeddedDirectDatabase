@@ -38,13 +38,13 @@ import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.Protocol;
 import hd3gtv.embddb.socket.SocketClient;
 import hd3gtv.embddb.socket.SocketServer;
-import hd3gtv.embddb.tools.InteractiveConsoleMode;
-import hd3gtv.embddb.tools.PressureMeasurement;
 import hd3gtv.internaltaskqueue.ActivityScheduler;
 import hd3gtv.internaltaskqueue.ITQueue;
 import hd3gtv.mydmam.MyDMAM;
 import hd3gtv.tools.AddressMaster;
 import hd3gtv.tools.GsonIgnoreStrategy;
+import hd3gtv.tools.InteractiveConsoleMode;
+import hd3gtv.tools.PressureMeasurement;
 import hd3gtv.tools.TableList;
 
 public class PoolManager {
@@ -169,20 +169,22 @@ public class PoolManager {
 						System.out.println("You can't add this node " + node + " because it's already added");
 					}
 				});
-			} else if (node_list.contains(addr)) {
-				Node node = node_list.get(addr);
-				if (param.startsWith("rm")) {
-					node.sendRequest(DisconnectRequest.class, "Manual via console");
-				} else if (param.startsWith("close")) {
-					node.close(getClass());
-					node_list.remove(node);
-				} else if (param.startsWith("isopen")) {
-					System.out.println("Is now open: " + node.isOpenSocket());
-				} else {
-					System.out.println("Order ”" + param + "” is unknow");
-				}
 			} else {
-				System.out.println("Can't found node " + addr + " in current list. Please check with nl command");
+				Node node = node_list.get(addr);
+				if (node != null) {
+					if (param.startsWith("rm")) {
+						node.sendRequest(DisconnectRequest.class, "Manual via console");
+					} else if (param.startsWith("close")) {
+						node.close(getClass());
+						node_list.remove(node);
+					} else if (param.startsWith("isopen")) {
+						System.out.println("Is now open: " + node.isOpenSocket());
+					} else {
+						System.out.println("Order ”" + param + "” is unknow");
+					}
+				} else {
+					System.out.println("Can't found node " + addr + " in current list. Please check with nl command");
+				}
 			}
 		});
 		
@@ -292,12 +294,12 @@ public class PoolManager {
 	
 	public void setBootstrapPotentialNodes(List<InetSocketAddress> servers) {
 		this.bootstrap_servers = servers;
-		if (servers == null) {
-			throw new NullPointerException("\"servers\" can't to be null");
-		}
 	}
 	
-	public void connectToBootstrapPotentialNodes(String reason) {// TODO call this if nodelist is empty
+	public void connectToBootstrapPotentialNodes(String reason) {
+		if (bootstrap_servers == null) {
+			return;
+		}
 		bootstrap_servers.forEach(addr -> {
 			try {
 				declareNewPotentialDistantServer(addr, new ConnectionCallback() {
@@ -315,7 +317,7 @@ public class PoolManager {
 					}
 				});
 			} catch (Exception e) {
-				log.error("Can't create node: " + addr, e);
+				log.error("Can't create node: " + addr + ", by " + reason, e);
 			}
 		});
 	}

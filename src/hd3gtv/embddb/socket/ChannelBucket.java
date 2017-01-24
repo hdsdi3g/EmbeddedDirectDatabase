@@ -28,7 +28,7 @@ import org.apache.log4j.Logger;
 
 import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.dialect.WantToCloseLink;
-import hd3gtv.embddb.tools.PressureMeasurement;
+import hd3gtv.tools.PressureMeasurement;
 
 class ChannelBucket {
 	

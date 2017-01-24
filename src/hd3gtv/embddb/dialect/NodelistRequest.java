@@ -81,7 +81,7 @@ public class NodelistRequest extends Request<Void> {
 				 */
 				try {
 					UUID uuid = Node.getUUIDFromAutodiscoverIDCard(jo);
-					return uuid.equals(this_uuid) == false && node_list.contains(uuid) == false;
+					return uuid.equals(this_uuid) == false && node_list.get(uuid) == null;
 				} catch (Exception e) {
 					log.warn("Invalid UUID format in json " + list.toString() + " from " + source_node, e);
 					return false;

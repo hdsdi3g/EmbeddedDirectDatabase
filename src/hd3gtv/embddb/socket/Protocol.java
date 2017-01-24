@@ -30,7 +30,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.tools.Hexview;
+import hd3gtv.tools.Hexview;
 
 public final class Protocol {
 	private static final Logger log = Logger.getLogger(Protocol.class);
