@@ -23,20 +23,26 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import org.apache.log4j.Logger;
+
+import hd3gtv.embddb.tools.PressureMeasurement;
+import hd3gtv.mydmam.Loggers;
 import hd3gtv.tools.StoppableThread;
 
 public class ITQueue {
 	
+	private static Logger log = Logger.getLogger(ITQueue.class);
+	
 	private LinkedList<ParameterizedTask<?, ?>> pending_tasks;
 	private ArrayList<Executor> executors;
 	private int executor_count;
-	
-	// TODO compute PM stats
+	private PressureMeasurement pressure;
 	
 	public ITQueue(int executor_count) {
 		pending_tasks = new LinkedList<>();
 		executors = new ArrayList<>();
 		this.executor_count = executor_count;
+		pressure = new PressureMeasurement();
 		startAll();
 	}
 	
@@ -120,25 +126,32 @@ public class ITQueue {
 		ParametedWithResultProcedure<T, O> process;
 		BiConsumer<T, O> onSuccess;
 		BiConsumer<T, Exception> onError;
+		long creation_date;
+		long start_date;
+		long end_date;
 		
 		private ParameterizedTask(T item, ParametedWithResultProcedure<T, O> process, BiConsumer<T, O> onSuccess, BiConsumer<T, Exception> onError) {
 			this.item = item;
 			this.process = process;
 			this.onSuccess = onSuccess;
 			this.onError = onError;
+			creation_date = System.currentTimeMillis();
 		}
 		
 		private void process() throws Exception {
+			start_date = System.currentTimeMillis();
 			result = process.process(item);
 		}
 		
 		private void onError(Exception e) {
+			end_date = System.currentTimeMillis();
 			if (onError != null) {
 				onError.accept(item, e);
 			}
 		}
 		
 		private void onDone() {
+			end_date = System.currentTimeMillis();
 			if (onSuccess != null) {
 				onSuccess.accept(item, result);
 			}
@@ -154,8 +167,9 @@ public class ITQueue {
 				sb.append("Process " + process.getClass() + " ");
 			}
 			if (result != null) {
-				sb.append("Result " + result.getClass() + " [" + result.toString() + "]");
+				sb.append("Result " + result.getClass() + " [" + result.toString() + "] ");
 			}
+			sb.append("Created " + Loggers.dateLog(creation_date));
 			
 			return sb.toString();
 		}
@@ -234,6 +248,15 @@ public class ITQueue {
 					if (isWantToRun()) {
 						selected_task.onDone();
 					}
+					
+					if (log.isTraceEnabled()) {
+						String start_dur = String.valueOf(selected_task.start_date - selected_task.creation_date) + " ms";
+						String end_dur = String.valueOf(selected_task.end_date - selected_task.start_date) + " ms";
+						log.trace("Task time, created " + Loggers.dateLog(selected_task.creation_date) + ", started  " + start_dur + ", during " + end_dur);
+					}
+					
+					pressure.onProcess(selected_task.end_date - selected_task.creation_date);
+					
 					selected_task = null;
 				}
 				stoppableSleep(1);
@@ -266,4 +289,7 @@ public class ITQueue {
 		});
 	}
 	
+	public PressureMeasurement getPressureMeasurement() {
+		return pressure;
+	}
 }

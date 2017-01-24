@@ -37,8 +37,10 @@ class ChannelBucket {
 	private final Node referer;
 	private final ByteBuffer buffer;
 	private final AsynchronousSocketChannel channel;
-	private PressureMeasurement pressure_measurement;// TODO get process time
 	private InetSocketAddress socket_addr;
+	
+	private PressureMeasurement pressure_measurement_sended;
+	private PressureMeasurement pressure_measurement_recevied;
 	
 	ChannelBucket(PoolManager pool_manager, Node referer, AsynchronousSocketChannel channel) {
 		this.pool_manager = pool_manager;
@@ -49,15 +51,20 @@ class ChannelBucket {
 		if (referer == null) {
 			throw new NullPointerException("\"referer\" can't to be null");
 		}
-		this.pressure_measurement = pool_manager.getNodeList().getPressureMeasurement();
-		if (pressure_measurement == null) {
-			throw new NullPointerException("\"pressure_measurement\" can't to be null");
-		}
 		this.channel = channel;
 		if (channel == null) {
 			throw new NullPointerException("\"channel\" can't to be null");
 		}
 		this.buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
+		
+		this.pressure_measurement_recevied = pool_manager.getPressureMeasurementRecevied();
+		if (pressure_measurement_recevied == null) {
+			throw new NullPointerException("\"pressure_measurement_recevied\" can't to be null");
+		}
+		this.pressure_measurement_sended = pool_manager.getPressureMeasurementSended();
+		if (pressure_measurement_sended == null) {
+			throw new NullPointerException("\"pressure_measurement_sended\" can't to be null");
+		}
 	}
 	
 	public InetSocketAddress getRemoteSocketAddr() throws IOException {
@@ -124,7 +131,6 @@ class ChannelBucket {
 		if (log.isTraceEnabled()) {
 			log.trace("Prepare " + content.length + " bytes to decrypt");
 		}
-		pressure_measurement.onReceviedBlock(content.length);
 		
 		buffer.get(content, 0, content.length);
 		buffer.clear();
@@ -137,7 +143,7 @@ class ChannelBucket {
 		return result;
 	}
 	
-	void encrypt(byte[] data) throws GeneralSecurityException {
+	int encrypt(byte[] data) throws GeneralSecurityException {
 		if (log.isTraceEnabled()) {
 			log.trace("Prepare " + data.length + " bytes to encrypt");
 		}
@@ -154,14 +160,17 @@ class ChannelBucket {
 			log.trace("Set " + result.length + " bytes encrypted");
 		}
 		
-		pressure_measurement.onSendedBlock(result.length);
+		return result.length;
 	}
 	
 	/**
 	 * It will add to queue
 	 */
 	void doProcessReceviedDatas() throws Exception {
+		final long start_time = System.currentTimeMillis();
+		
 		final byte[] datas = decrypt();
+		
 		pool_manager.getQueue().addToQueue(() -> {
 			RequestBlock block = null;
 			try {
@@ -172,10 +181,13 @@ class ChannelBucket {
 				return;
 			}
 			pool_manager.getRequestHandler().onReceviedNewBlock(block, referer);
+			
+			pressure_measurement_recevied.onDatas(datas.length, System.currentTimeMillis() - start_time);
 		}, wtcl -> {
 			if (wtcl instanceof WantToCloseLink) {
 				log.debug("Handler want to close link");
 				close(getClass());
+				pressure_measurement_recevied.onDatas(datas.length, System.currentTimeMillis() - start_time);
 				return;
 			}
 			log.error("Can process request handler", wtcl);
@@ -188,15 +200,18 @@ class ChannelBucket {
 	 * @throws IOException if channel is closed.
 	 */
 	void sendData(RequestBlock to_send, boolean close_channel_after_send) throws IOException {
+		final long start_time = System.currentTimeMillis();
+		
 		checkIfOpen();
 		
 		pool_manager.getQueue().addToQueue(() -> {
 			if (log.isTraceEnabled()) {
 				log.trace("Get from " + toString() + " " + to_send.toString());
 			}
-			
-			encrypt(to_send.getBytes(pool_manager.getProtocol()));
+			int size = encrypt(to_send.getBytes(pool_manager.getProtocol()));
 			asyncWrite(close_channel_after_send);
+			
+			pressure_measurement_sended.onDatas(size, System.currentTimeMillis() - start_time);
 		}, e -> {
 			log.error("Can't send datas " + toString(), e);
 		});

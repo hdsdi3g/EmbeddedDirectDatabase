@@ -39,6 +39,7 @@ import hd3gtv.embddb.socket.Protocol;
 import hd3gtv.embddb.socket.SocketClient;
 import hd3gtv.embddb.socket.SocketServer;
 import hd3gtv.embddb.tools.InteractiveConsoleMode;
+import hd3gtv.embddb.tools.PressureMeasurement;
 import hd3gtv.internaltaskqueue.ActivityScheduler;
 import hd3gtv.internaltaskqueue.ITQueue;
 import hd3gtv.mydmam.MyDMAM;
@@ -68,6 +69,9 @@ public class PoolManager {
 	private ActivityScheduler<Node> node_scheduler;
 	private ActivityScheduler<NodeList> nodelist_scheduler;
 	
+	private PressureMeasurement pressure_measurement_sended;
+	private PressureMeasurement pressure_measurement_recevied;
+	
 	public static final Type type_InetSocketAddress_String = new TypeToken<ArrayList<InetSocketAddress>>() {
 	}.getType();
 	
@@ -92,6 +96,9 @@ public class PoolManager {
 		if (queue == null) {
 			throw new NullPointerException("\"queue\" can't to be null");
 		}
+		
+		pressure_measurement_sended = new PressureMeasurement();
+		pressure_measurement_recevied = new PressureMeasurement();
 		
 		node_list = new NodeList(this);
 		uuid_ref = UUID.randomUUID();
@@ -234,13 +241,31 @@ public class PoolManager {
 		});
 		
 		console.addOrder("stats", "Get last pressure measurement", "Get nodelist data stats", getClass(), param -> {
-			System.out.println("Node list: " + node_list.getPressureMeasurement().getActualStats(false));
+			TableList list = new TableList(10);
+			PressureMeasurement.toTableHeader(list);
+			pressure_measurement_recevied.getActualStats(false).toTable(list, "Recevied");
+			pressure_measurement_sended.getActualStats(false).toTable(list, "Sended");
+			queue.getPressureMeasurement().getActualStats(false).toTable(list, "Queue");
+			list.print();
 		});
 		
 		console.addOrder("resetstats", "Reset pressure measurement", "Get nodelist data stats and reset it", getClass(), param -> {
-			System.out.println("Node list: " + node_list.getPressureMeasurement().getActualStats(true));
+			TableList list = new TableList(10);
+			PressureMeasurement.toTableHeader(list);
+			pressure_measurement_recevied.getActualStats(true).toTable(list, "Recevied");
+			pressure_measurement_sended.getActualStats(true).toTable(list, "Sended");
+			queue.getPressureMeasurement().getActualStats(true).toTable(list, "Queue");
+			list.print();
 		});
 		
+	}
+	
+	public PressureMeasurement getPressureMeasurementSended() {
+		return pressure_measurement_sended;
+	}
+	
+	public PressureMeasurement getPressureMeasurementRecevied() {
+		return pressure_measurement_recevied;
 	}
 	
 	public UUID getUUIDRef() {

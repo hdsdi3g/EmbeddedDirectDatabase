@@ -21,30 +21,47 @@ import java.text.NumberFormat;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class PressureMeasurement { // TODO transform to a generic API: separe send/transfert
-	
+import hd3gtv.tools.TableList;
+
+public class PressureMeasurement {
 	private long start_time;
-	private AtomicLong recevied_datas;
-	private AtomicLong sended_datas;
-	private AtomicLong recevied_blocks;
-	private AtomicLong sended_blocks;
+	private AtomicLong current_transfered_datas;
+	private AtomicLong current_transfered_blocks;
+	private AtomicLong current_transfered_time;
+	private AtomicLong current_transfered_time_max;
+	private AtomicLong current_transfered_time_min;
 	
 	public PressureMeasurement() {
 		start_time = System.currentTimeMillis();
-		recevied_datas = new AtomicLong();
-		sended_datas = new AtomicLong();
-		recevied_blocks = new AtomicLong();
-		sended_blocks = new AtomicLong();
+		current_transfered_datas = new AtomicLong();
+		current_transfered_blocks = new AtomicLong();
+		current_transfered_time = new AtomicLong();
+		current_transfered_time_max = new AtomicLong();
+		current_transfered_time_min = new AtomicLong(Long.MAX_VALUE);
 	}
 	
-	public void onReceviedBlock(long size) {
-		recevied_blocks.incrementAndGet();
-		recevied_datas.addAndGet(size);
+	public void onDatas(long size, long duration) {
+		current_transfered_blocks.incrementAndGet();
+		current_transfered_datas.addAndGet(size);
+		current_transfered_time.addAndGet(duration);
+		current_transfered_time_max.getAndAccumulate(duration, (before, after) -> {
+			if (after > before) {
+				return after;
+			} else {
+				return before;
+			}
+		});
+		current_transfered_time_min.getAndAccumulate(duration, (before, after) -> {
+			if (after < before) {
+				return after;
+			} else {
+				return before;
+			}
+		});
 	}
 	
-	public void onSendedBlock(long size) {
-		sended_blocks.incrementAndGet();
-		sended_datas.addAndGet(size);
+	public void onProcess(long duration) {
+		onDatas(0, duration);
 	}
 	
 	public CollectedData getActualStats(boolean reset_after) {
@@ -56,11 +73,20 @@ public class PressureMeasurement { // TODO transform to a generic API: separe se
 	}
 	
 	private void reset() {
-		recevied_datas.set(0);
-		sended_datas.set(0);
-		recevied_blocks.set(0);
-		sended_blocks.set(0);
+		current_transfered_datas.set(0);
+		current_transfered_blocks.set(0);
+		current_transfered_time.set(0);
+		current_transfered_time_max.set(0);
+		current_transfered_time_min.set(0);
 		start_time = System.currentTimeMillis();
+	}
+	
+	/**
+	 * @param table size 10
+	 */
+	public static void toTableHeader(TableList table) {
+		table.addRow("Name", "Last", "Transf", "Hits", "During", "Max", "Min", "Mean", "Speed", "Speed");
+		
 	}
 	
 	public class CollectedData {
@@ -70,72 +96,119 @@ public class PressureMeasurement { // TODO transform to a generic API: separe se
 		 */
 		private double duration;
 		
-		private double last_recevied_datas;
-		private double last_sended_datas;
-		private double last_recevied_blocks;
-		private double last_sended_blocks;
+		/**
+		 * Bytes
+		 */
+		private double last_transfered_datas;
+		
+		/**
+		 * Incr
+		 */
+		private double last_transfered_blocks;
+		
+		/**
+		 * Sec
+		 */
+		private double last_transfered_time;
+		
+		/**
+		 * Sec
+		 */
+		private double last_transfered_time_max;
+		
+		/**
+		 * Sec
+		 */
+		private double last_transfered_time_min;
+		
+		private String time;
+		private String transfered_datas;
+		private String transfered_blocks;
+		private String transfered_time;
+		private String transfered_time_max;
+		private String transfered_time_min;
+		private String transfered_time_mean;
+		private String transfered_datas_speed;
+		private String transfered_datas_blocks_speed;
 		
 		private CollectedData() {
 			duration = (System.currentTimeMillis() - start_time) / 1000d;
-			last_recevied_datas = recevied_datas.get();
-			last_sended_datas = sended_datas.get();
-			last_recevied_blocks = recevied_blocks.get();
-			last_sended_blocks = sended_blocks.get();
+			last_transfered_datas = current_transfered_datas.get();
+			last_transfered_blocks = current_transfered_blocks.get();
+			last_transfered_time = current_transfered_time.get() / 1000d;
+			last_transfered_time_max = current_transfered_time_max.get() / 1000d;
+			last_transfered_time_min = current_transfered_time_min.get() / 1000d;
+			
+			if (last_transfered_blocks == 0) {
+				return;
+			}
+			
+			DecimalFormat simple = (DecimalFormat) NumberFormat.getNumberInstance(Locale.getDefault());
+			simple.applyPattern("###,###,###.#");
+			DecimalFormat high = (DecimalFormat) NumberFormat.getNumberInstance(Locale.getDefault());
+			high.applyPattern("###,###,###.###");
+			
+			time = simple.format(duration) + " sec";
+			
+			transfered_datas = simple.format(last_transfered_datas / 1024d) + " kb";
+			if (last_transfered_datas == 0) {
+				transfered_datas = "";
+			}
+			
+			transfered_blocks = simple.format(last_transfered_blocks) + " hits";
+			transfered_time = high.format(last_transfered_time) + " sec";
+			transfered_time_max = high.format(last_transfered_time_max) + " sec";
+			transfered_time_min = high.format(last_transfered_time_min) + " sec";
+			
+			transfered_time_mean = high.format(last_transfered_time / last_transfered_blocks) + " sec";
+			
+			transfered_datas_speed = high.format((last_transfered_datas / duration) / 1024d) + " kb/sec";
+			if (last_transfered_datas == 0) {
+				transfered_datas_speed = "";
+			}
+			
+			transfered_datas_blocks_speed = high.format((last_transfered_blocks / duration)) + " hit/sec";
 		}
 		
 		/**
-		 * @return blk/sec
+		 * @param table size 10
 		 */
-		public double getReceviedBlocksSpeed() {
-			return last_recevied_blocks / duration;
-		}
-		
-		/**
-		 * @return bytes/sec
-		 */
-		public double getReceviedDatasSpeed() {
-			return last_recevied_datas / duration;
-		}
-		
-		/**
-		 * @return blk/sec
-		 */
-		public double getSendedBlocksSpeed() {
-			return last_sended_blocks / duration;
-		}
-		
-		/**
-		 * @return bytes/sec
-		 */
-		public double getSendedDatasSpeed() {
-			return last_sended_datas / duration;
+		public void toTable(TableList table, String prefix) {
+			if (last_transfered_blocks == 0) {
+				return;
+			}
+			table.addRow(prefix, time, transfered_datas, transfered_blocks, transfered_time, transfered_time_max, transfered_time_min, transfered_time_mean, transfered_datas_speed,
+					transfered_datas_blocks_speed);
 		}
 		
 		public String toString() {
-			NumberFormat nf = NumberFormat.getNumberInstance(Locale.getDefault());
-			DecimalFormat df = (DecimalFormat) nf;
-			df.applyPattern("###,###,###.#");
+			if (last_transfered_blocks == 0) {
+				return "(nodatas)";
+			}
 			
 			StringBuilder sb = new StringBuilder();
-			sb.append("The last ");
-			sb.append(df.format(duration));
-			sb.append(" sec: recevied ");
-			sb.append(Math.round(last_recevied_blocks));
-			sb.append(" blk (");
-			sb.append(df.format(getReceviedBlocksSpeed()));
-			sb.append(" blk/sec) for ");
-			sb.append(df.format(last_recevied_datas));
-			sb.append(" kB (");
-			sb.append(df.format(getReceviedDatasSpeed() / 1000d));
-			sb.append(" kB/sec) and sended ");
-			sb.append(Math.round(last_sended_blocks));
-			sb.append(" blk (");
-			sb.append(df.format(getSendedBlocksSpeed()));
-			sb.append(" blk/sec) for ");
-			sb.append(df.format(last_sended_datas));
-			sb.append(" kB (");
-			sb.append(df.format(getSendedDatasSpeed() / 1000d));
-			sb.append(" kB/sec)");
+			sb.append("Last ");
+			sb.append(time);
+			if (last_transfered_datas > 0) {
+				sb.append(": ");
+				sb.append(transfered_datas);
+			}
+			sb.append(" in ");
+			sb.append(transfered_blocks);
+			sb.append(" during ");
+			sb.append(transfered_time);
+			sb.append(" (max: ");
+			sb.append(transfered_time_max);
+			sb.append(", min: ");
+			sb.append(transfered_time_min);
+			sb.append(", mean: ");
+			sb.append(transfered_time_mean);
+			sb.append("), speed: ");
+			if (last_transfered_datas > 0) {
+				sb.append(transfered_datas_speed);
+				sb.append(" / ");
+			}
+			sb.append(transfered_datas_blocks_speed);
 			return sb.toString();
 		}
 		

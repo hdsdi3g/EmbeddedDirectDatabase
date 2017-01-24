@@ -69,6 +69,7 @@ public class Node {
 		} catch (IOException e) {
 		}
 		server_delta_time = 0;
+		
 	}
 	
 	public InetSocketAddress getSocketAddr() {

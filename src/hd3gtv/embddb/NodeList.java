@@ -36,7 +36,6 @@ import hd3gtv.embddb.dialect.HelloRequest;
 import hd3gtv.embddb.dialect.NodelistRequest;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
-import hd3gtv.embddb.tools.PressureMeasurement;
 import hd3gtv.internaltaskqueue.ActivityScheduledAction;
 import hd3gtv.internaltaskqueue.Procedure;
 
@@ -51,7 +50,6 @@ public class NodeList {
 	private HashMap<UUID, Node> nodes_by_uuid;
 	private AtomicBoolean autodiscover_can_be_remake = null;
 	private PoolManager pool_manager;
-	private PressureMeasurement pressure_measurement;
 	
 	NodeList(PoolManager pool_manager) {
 		this.pool_manager = pool_manager;
@@ -64,7 +62,6 @@ public class NodeList {
 		nodes_by_uuid = new HashMap<>();
 		
 		autodiscover_can_be_remake = new AtomicBoolean(true);
-		pressure_measurement = new PressureMeasurement();
 	}
 	
 	/**
@@ -276,10 +273,6 @@ public class NodeList {
 	
 	public Stream<Node> getAllNodes() {
 		return nodes.stream();
-	}
-	
-	public PressureMeasurement getPressureMeasurement() {
-		return pressure_measurement;
 	}
 	
 }
