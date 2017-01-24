@@ -20,15 +20,14 @@ import java.io.File;
 import java.net.InetSocketAddress;
 import java.security.Security;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
-import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
-import hd3gtv.embddb.socket.ConnectionCallback;
-import hd3gtv.embddb.socket.Node;
 import hd3gtv.internaltaskqueue.ITQueue;
 
 public class MainClass {
@@ -50,39 +49,21 @@ public class MainClass {
 		Properties conf = new Properties();
 		conf.load(FileUtils.openInputStream(new File("conf.properties")));
 		
-		importConf(poolmanager, conf, poolmanager.getProtocol().getDefaultTCPPort(), addr -> {
-			try {
-				poolmanager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
-					
-					public void onNewConnectedNode(Node node) {
-						log.info("Connected to node (declared by configuration): " + node);
-					}
-					
-					public void onLocalServerConnection(InetSocketAddress server) {
-						log.warn("Can't add local server (" + server.getHostString() + "/" + server.getPort() + ") not node list. Check your configuration.");
-					}
-					
-					public void alreadyConnectedNode(Node node) {
-						log.info("Node is already connected: " + node);
-					}
-				});
-			} catch (Exception e) {
-				log.error("Can't create node: " + addr, e);
-			}
-		});
+		poolmanager.setBootstrapPotentialNodes(importConf(poolmanager, conf, poolmanager.getProtocol().getDefaultTCPPort()));
+		poolmanager.connectToBootstrapPotentialNodes("Startup");
 		
 		Thread.sleep(50);
 		
 		poolmanager.startConsole();
 	}
 	
-	private static void importConf(PoolManager poolmanager, Properties conf, int default_port, Consumer<InetSocketAddress> callback_addr) throws Exception {
+	private static List<InetSocketAddress> importConf(PoolManager poolmanager, Properties conf, int default_port) throws Exception {
 		if (conf.containsKey("hosts") == false) {
 			throw new NullPointerException("No hosts in configuration");
 		}
 		String hosts = conf.getProperty("hosts");
 		
-		Arrays.asList(hosts.split(" ")).stream().map(addr -> {
+		return Arrays.asList(hosts.split(" ")).stream().map(addr -> {
 			if (addr.isEmpty() == false) {
 				log.debug("Found host in configuration: " + addr);
 				return new InetSocketAddress(addr, default_port);
@@ -91,7 +72,7 @@ public class MainClass {
 			}
 		}).filter(addr -> {
 			return addr != null;
-		}).forEach(callback_addr::accept);
+		}).collect(Collectors.toList());
 	}
 	
 }

@@ -22,6 +22,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.ReadPendingException;
 import java.security.GeneralSecurityException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
 
@@ -41,6 +42,7 @@ class ChannelBucket {
 	
 	private PressureMeasurement pressure_measurement_sended;
 	private PressureMeasurement pressure_measurement_recevied;
+	private AtomicLong last_activity;
 	
 	ChannelBucket(PoolManager pool_manager, Node referer, AsynchronousSocketChannel channel) {
 		this.pool_manager = pool_manager;
@@ -65,6 +67,7 @@ class ChannelBucket {
 		if (pressure_measurement_sended == null) {
 			throw new NullPointerException("\"pressure_measurement_sended\" can't to be null");
 		}
+		last_activity = new AtomicLong(System.currentTimeMillis());
 	}
 	
 	public InetSocketAddress getRemoteSocketAddr() throws IOException {
@@ -76,6 +79,10 @@ class ChannelBucket {
 	
 	boolean isOpen() {
 		return channel.isOpen();
+	}
+	
+	long getLastActivityDate() {
+		return last_activity.get();
 	}
 	
 	void checkIfOpen() throws IOException {
@@ -168,6 +175,7 @@ class ChannelBucket {
 	 */
 	void doProcessReceviedDatas() throws Exception {
 		final long start_time = System.currentTimeMillis();
+		last_activity.set(start_time);
 		
 		final byte[] datas = decrypt();
 		

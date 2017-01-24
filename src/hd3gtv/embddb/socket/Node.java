@@ -49,6 +49,7 @@ public class Node {
 	private long server_delta_time;
 	private SocketProvider provider;
 	private InetSocketAddress socket_addr;
+	private boolean out_of_time;
 	
 	public Node(SocketProvider provider, PoolManager pool_manager, AsynchronousSocketChannel channel) {
 		this.provider = provider;
@@ -69,7 +70,6 @@ public class Node {
 		} catch (IOException e) {
 		}
 		server_delta_time = 0;
-		
 	}
 	
 	public InetSocketAddress getSocketAddr() {
@@ -92,6 +92,21 @@ public class Node {
 	
 	public void close(Class<?> by) {
 		channelbucket.close(by);
+	}
+	
+	/**
+	 * Plot twist: this current host may be out of time and the node can be at the right date.
+	 * @return false the case if you should not communicate with it if you needs date accuracy.
+	 */
+	public boolean isOutOfTime(long min_delta_time, long max_delta_time) {
+		if (server_delta_time < min_delta_time | server_delta_time > max_delta_time) {
+			return true;
+		}
+		return false;
+	}
+	
+	public long getLastActivityDate() {
+		return channelbucket.getLastActivityDate();
 	}
 	
 	public String toString() {
@@ -267,27 +282,11 @@ public class Node {
 		return pool_manager.getSimpleGson().fromJson(item.get("server_addr"), PoolManager.type_InetSocketAddress_String);
 	}
 	
-	public static final long MAX_TOLERANCE_DELTA_TIME_WITH_SERVER = TimeUnit.SECONDS.toMillis(30);
-	
-	/**
-	 * Network jitter filter
-	 */
-	public static final long MIN_TOLERANCE_DELTA_TIME_WILL_UPDATE_CHANGE = TimeUnit.MILLISECONDS.toMillis(200);
-	
-	public void setDistantDate(long server_date) throws IOException {
+	public void setDistantDate(long server_date) {
 		long new_delay = server_date - System.currentTimeMillis();
-		
-		if (Math.abs(server_delta_time - new_delay) < MIN_TOLERANCE_DELTA_TIME_WILL_UPDATE_CHANGE) {
-			return;
-		}
 		
 		if (log.isTraceEnabled()) {
 			log.trace("Node " + toString() + " delay: " + server_delta_time + " ms before, now is " + new_delay + " ms");
-		}
-		
-		if ((server_delta_time != new_delay) && (Math.abs(server_delta_time) > MAX_TOLERANCE_DELTA_TIME_WITH_SERVER)) {
-			log.warn("Big delay with node " + toString() + ": " + server_delta_time + " ms. Please check the NTP setup with this host and the node ! In the meantime, this node will be disconnected.");
-			throw new IOException("Invalid node delay (" + Math.abs(server_delta_time) + ")");
 		}
 		
 		server_delta_time = new_delay;

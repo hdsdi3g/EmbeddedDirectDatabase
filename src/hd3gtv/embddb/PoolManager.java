@@ -18,10 +18,10 @@ package hd3gtv.embddb;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
@@ -288,6 +288,38 @@ public class PoolManager {
 		return simple_gson;
 	}
 	
+	private List<InetSocketAddress> bootstrap_servers;
+	
+	public void setBootstrapPotentialNodes(List<InetSocketAddress> servers) {
+		this.bootstrap_servers = servers;
+		if (servers == null) {
+			throw new NullPointerException("\"servers\" can't to be null");
+		}
+	}
+	
+	public void connectToBootstrapPotentialNodes(String reason) {// TODO call this if nodelist is empty
+		bootstrap_servers.forEach(addr -> {
+			try {
+				declareNewPotentialDistantServer(addr, new ConnectionCallback() {
+					
+					public void onNewConnectedNode(Node node) {
+						log.info("Connected to node (bootstrap): " + node + " by " + reason);
+					}
+					
+					public void onLocalServerConnection(InetSocketAddress server) {
+						log.warn("Can't add server (" + server.getHostString() + "/" + server.getPort() + ") not node list, by " + reason);
+					}
+					
+					public void alreadyConnectedNode(Node node) {
+						log.debug("Node is already connected: " + node + ", by " + reason);
+					}
+				});
+			} catch (Exception e) {
+				log.error("Can't create node: " + addr, e);
+			}
+		});
+	}
+	
 	public void startLocalServers() throws IOException {
 		ArrayList<String> logresult = new ArrayList<>();
 		
@@ -368,13 +400,6 @@ public class PoolManager {
 				}
 			});
 		}
-	}
-	
-	/**
-	 * @param callback_on_connection Always callback it, even if already exists.
-	 */
-	public void declareNewPotentialDistantServer(InetAddress addr, ConnectionCallback callback_on_connection) throws IOException {
-		declareNewPotentialDistantServer(new InetSocketAddress(addr, getProtocol().getDefaultTCPPort()), callback_on_connection);
 	}
 	
 	public NodeList getNodeList() {

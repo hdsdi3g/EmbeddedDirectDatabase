@@ -46,10 +46,14 @@ public class NodeList {
 	private final Object lock = new Object();
 	
 	private List<Node> nodes;
-	private HashMap<InetSocketAddress, Node> nodes_by_addr;
-	private HashMap<UUID, Node> nodes_by_uuid;
+	private HashMap<InetSocketAddress, Node> nodes_by_addr;// TODO remove, remplace by stream
+	private HashMap<UUID, Node> nodes_by_uuid;// TODO remove, remplace by stream
 	private AtomicBoolean autodiscover_can_be_remake = null;
 	private PoolManager pool_manager;
+	
+	// TODO regular check if nodelist is empty and call bootstrap
+	
+	// TODO add IsItJudicious check for regular tasks
 	
 	NodeList(PoolManager pool_manager) {
 		this.pool_manager = pool_manager;
@@ -138,6 +142,10 @@ public class NodeList {
 				});
 			}
 		}
+		
+		if (nodes.isEmpty()) {
+			pool_manager.connectToBootstrapPotentialNodes("Opened nodes list empty after purge");
+		}
 	}
 	
 	public void remove(Node node) {
@@ -155,6 +163,10 @@ public class NodeList {
 		}
 		
 		pool_manager.getNode_scheduler().remove(node);
+		
+		if (nodes.isEmpty()) {
+			pool_manager.connectToBootstrapPotentialNodes("Opened nodes list empty after purge");
+		}
 	}
 	
 	/**
