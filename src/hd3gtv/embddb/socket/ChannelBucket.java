@@ -36,7 +36,8 @@ class ChannelBucket {
 	
 	private PoolManager pool_manager;
 	private final Node referer;
-	private final ByteBuffer buffer;
+	private final ByteBuffer read_buffer;
+	private final ByteBuffer write_buffer;
 	private final AsynchronousSocketChannel channel;
 	private InetSocketAddress socket_addr;
 	
@@ -57,7 +58,8 @@ class ChannelBucket {
 		if (channel == null) {
 			throw new NullPointerException("\"channel\" can't to be null");
 		}
-		this.buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
+		this.read_buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
+		this.write_buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
 		
 		this.pressure_measurement_recevied = pool_manager.getPressureMeasurementRecevied();
 		if (pressure_measurement_recevied == null) {
@@ -92,16 +94,16 @@ class ChannelBucket {
 	}
 	
 	void asyncRead() {
-		buffer.clear();
+		read_buffer.clear();
 		try {
-			channel.read(buffer, this, pool_manager.getProtocol().getHandlerReader());
+			channel.read(read_buffer, this, pool_manager.getProtocol().getHandlerReader());
 		} catch (ReadPendingException e) {
 			log.trace("No two reads at the same time for " + toString());
 		}
 	}
 	
 	void asyncWrite(boolean close_channel_after_send) {
-		channel.write(buffer, this, pool_manager.getProtocol().getHandlerWriter(close_channel_after_send));
+		channel.write(write_buffer, this, pool_manager.getProtocol().getHandlerWriter(close_channel_after_send));
 		/*try {
 			channel.shutdownInput();
 		} catch (Exception e) {
@@ -142,7 +144,8 @@ class ChannelBucket {
 			log.debug("Want close node, by " + by.getSimpleName());
 		}
 		
-		buffer.clear();
+		read_buffer.clear();
+		write_buffer.clear();
 		if (channel.isOpen()) {
 			try {
 				channel.close();
@@ -154,14 +157,14 @@ class ChannelBucket {
 	}
 	
 	byte[] decrypt() throws GeneralSecurityException {
-		buffer.flip();
-		byte[] content = new byte[buffer.remaining()];
+		read_buffer.flip();
+		byte[] content = new byte[read_buffer.remaining()];
 		if (log.isTraceEnabled()) {
 			log.trace("Prepare " + content.length + " bytes to decrypt");
 		}
 		
-		buffer.get(content, 0, content.length);
-		buffer.clear();
+		read_buffer.get(content, 0, content.length);
+		read_buffer.clear();
 		
 		byte[] result = pool_manager.getProtocol().decrypt(content, 0, content.length);
 		if (log.isTraceEnabled()) {
@@ -176,13 +179,13 @@ class ChannelBucket {
 			log.trace("Prepare " + data.length + " bytes to encrypt");
 		}
 		
-		buffer.clear();
+		write_buffer.clear();
 		
 		byte[] result = pool_manager.getProtocol().encrypt(data, 0, data.length);
 		
-		buffer.put(result);
+		write_buffer.put(result);
 		
-		buffer.flip();
+		write_buffer.flip();
 		
 		if (log.isTraceEnabled()) {
 			log.trace("Set " + result.length + " bytes encrypted");

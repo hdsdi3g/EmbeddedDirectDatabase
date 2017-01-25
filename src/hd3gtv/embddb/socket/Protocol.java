@@ -17,6 +17,7 @@
 package hd3gtv.embddb.socket;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.channels.CompletionHandler;
 import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
@@ -112,4 +113,60 @@ public final class Protocol {
 		return result;
 	}
 	
+	class SocketHandlerReader implements CompletionHandler<Integer, ChannelBucket> {
+		
+		public void completed(Integer size, ChannelBucket bucket) {
+			if (size < 1) {
+				log.debug("Get empty datas from " + bucket.toString());
+				// bucket.close(getClass());
+				return;
+			}
+			
+			if (log.isTraceEnabled()) {
+				log.trace("Recevied from " + bucket + " " + size + " bytes");
+			}
+			
+			try {
+				bucket.doProcessReceviedDatas();
+			} catch (Exception e) {
+				failed(e, bucket);
+			}
+		}
+		
+		public void failed(Throwable e, ChannelBucket bucket) {
+			log.error("Channel " + bucket + " failed, close socket", e);
+			bucket.close(getClass());
+		}
+		
+	}
+	
+	class SocketHandlerWriter implements CompletionHandler<Integer, ChannelBucket> {
+		
+		protected void showLogs(Integer size, ChannelBucket bucket) {
+			if (log.isTraceEnabled()) {
+				log.trace("Sended to " + bucket + " " + size + " bytes");
+			}
+		}
+		
+		public void completed(Integer size, ChannelBucket bucket) {
+			showLogs(size, bucket);
+			bucket.asyncRead();// FIXME why delay before read ?
+		}
+		
+		public void failed(Throwable e, ChannelBucket bucket) {
+			log.error("Channel " + bucket + " failed, close socket because " + e.getMessage());
+			bucket.close(getClass());
+		}
+		
+	}
+	
+	class SocketHandlerWriterCloser extends SocketHandlerWriter {
+		
+		public void completed(Integer size, ChannelBucket bucket) {
+			showLogs(size, bucket);
+			log.info("Manual close socket after send datas to other node " + bucket.toString());
+			bucket.close(getClass());
+		}
+		
+	}
 }
