@@ -203,28 +203,21 @@ class ChannelBucket {
 		
 		final byte[] datas = decrypt();
 		
-		pool_manager.getQueue().addToQueue(() -> {
-			RequestBlock block = null;
-			try {
-				block = new RequestBlock(pool_manager.getProtocol(), datas);
-			} catch (IOException e) {
-				log.error("Can't extract sended blocks " + referer.toString(), e);
-				close(getClass());
-				return;
-			}
+		try {
+			RequestBlock block = new RequestBlock(pool_manager.getProtocol(), datas);
 			pool_manager.getRequestHandler().onReceviedNewBlock(block, referer);
-			
 			pressure_measurement_recevied.onDatas(datas.length, System.currentTimeMillis() - start_time);
-		}, wtcl -> {
-			if (wtcl instanceof WantToCloseLink) {
+		} catch (IOException e) {
+			if (e instanceof WantToCloseLink) {
 				log.debug("Handler want to close link");
 				close(getClass());
 				pressure_measurement_recevied.onDatas(datas.length, System.currentTimeMillis() - start_time);
 				return;
+			} else {
+				log.error("Can't extract sended blocks " + referer.toString(), e);
+				close(getClass());
 			}
-			log.error("Can process request handler", wtcl);
-			close(getClass());
-		});
+		}
 	}
 	
 	/**
@@ -236,7 +229,7 @@ class ChannelBucket {
 		
 		checkIfOpen();
 		
-		pool_manager.getQueue().addToQueue(() -> {
+		try {
 			if (log.isTraceEnabled()) {
 				log.trace("Get from " + toString() + " " + to_send.toString());
 			}
@@ -244,9 +237,9 @@ class ChannelBucket {
 			asyncWrite(close_channel_after_send);
 			
 			pressure_measurement_sended.onDatas(size, System.currentTimeMillis() - start_time);
-		}, e -> {
+		} catch (Exception e) {
 			log.error("Can't send datas " + toString(), e);
-		});
+		}
 	}
 	
 	/**

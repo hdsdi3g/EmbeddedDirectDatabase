@@ -50,7 +50,7 @@ public class SocketClient implements SocketProvider {
 		
 		handler_connect = new SocketConnect();
 		
-		channel = AsynchronousSocketChannel.open();
+		channel = AsynchronousSocketChannel.open(pool_manager.getChannelGroup());
 		
 		channel.connect(server, new Node(this, pool_manager, channel), handler_connect);
 	}

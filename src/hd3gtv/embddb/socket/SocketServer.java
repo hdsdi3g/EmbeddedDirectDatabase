@@ -19,13 +19,10 @@ package hd3gtv.embddb.socket;
 import java.io.IOException;
 import java.net.BindException;
 import java.net.InetSocketAddress;
-import java.nio.channels.AsynchronousChannelGroup;
+import java.net.StandardSocketOptions;
 import java.nio.channels.AsynchronousServerSocketChannel;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.ClosedChannelException;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.log4j.Logger;
 
@@ -84,13 +81,11 @@ public class SocketServer extends StoppableThread implements SocketProvider {
 		return null;
 	}
 	
-	private static ThreadPoolExecutor pool = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<Runnable>());
-	
 	public void run() {
 		try {
-			AsynchronousChannelGroup group = null;
-			server = AsynchronousServerSocketChannel.open();
-			// TODO see http://niklasschlimm.blogspot.fr/2012/05/java-7-9-nio2-file-channels-on-test.html
+			server = AsynchronousServerSocketChannel.open(pool_manager.getChannelGroup());
+			server.setOption(StandardSocketOptions.SO_RCVBUF, 4 * 1024);
+			server.setOption(StandardSocketOptions.SO_REUSEADDR, true);
 			server.bind(listen);
 		} catch (BindException e) {
 			log.fatal("Socket " + listen.getHostString() + "/" + listen.getPort() + ", TCP, is already in use: can't open channel server");

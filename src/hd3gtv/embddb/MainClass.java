@@ -28,8 +28,6 @@ import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
-import hd3gtv.internaltaskqueue.ITQueue;
-
 public class MainClass {
 	
 	private static Logger log = Logger.getLogger(MainClass.class);
@@ -37,9 +35,7 @@ public class MainClass {
 	public static void main(String[] args) throws Exception {
 		Security.addProvider(new BouncyCastleProvider());
 		
-		ITQueue itqueue = new ITQueue(2);
-		
-		PoolManager poolmanager = new PoolManager(itqueue, "test");
+		PoolManager poolmanager = new PoolManager("test");
 		poolmanager.startLocalServers();
 		
 		// TODO manage white/black range addr list for autodiscover

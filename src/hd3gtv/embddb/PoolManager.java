@@ -19,10 +19,15 @@ package hd3gtv.embddb;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.InetSocketAddress;
+import java.nio.channels.AsynchronousChannelGroup;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import org.apache.log4j.Logger;
@@ -39,7 +44,6 @@ import hd3gtv.embddb.socket.Protocol;
 import hd3gtv.embddb.socket.SocketClient;
 import hd3gtv.embddb.socket.SocketServer;
 import hd3gtv.internaltaskqueue.ActivityScheduler;
-import hd3gtv.internaltaskqueue.ITQueue;
 import hd3gtv.mydmam.MyDMAM;
 import hd3gtv.tools.AddressMaster;
 import hd3gtv.tools.GsonIgnoreStrategy;
@@ -58,7 +62,11 @@ public class PoolManager {
 	
 	private Protocol protocol;
 	private NodeList node_list;
-	private ITQueue queue;
+	
+	private AsynchronousChannelGroup channel_group;
+	private BlockingQueue<Runnable> executor_pool_queue;
+	private ThreadPoolExecutor executor_pool;
+	
 	private ShutdownHook shutdown_hook;
 	
 	private InteractiveConsoleMode console;
@@ -75,7 +83,7 @@ public class PoolManager {
 	public static final Type type_InetSocketAddress_String = new TypeToken<ArrayList<InetSocketAddress>>() {
 	}.getType();
 	
-	public PoolManager(ITQueue queue, String master_password_key) throws GeneralSecurityException, IOException {
+	public PoolManager(String master_password_key) throws GeneralSecurityException, IOException {
 		GsonBuilder builder = new GsonBuilder();
 		builder.serializeNulls();
 		
@@ -92,10 +100,12 @@ public class PoolManager {
 		local_servers = new ArrayList<>();
 		console = new InteractiveConsoleMode();
 		
-		this.queue = queue;
-		if (queue == null) {
-			throw new NullPointerException("\"queue\" can't to be null");
-		}
+		executor_pool_queue = new LinkedBlockingQueue<Runnable>(100);
+		executor_pool = new ThreadPoolExecutor(1, Runtime.getRuntime().availableProcessors(), 100, TimeUnit.MILLISECONDS, executor_pool_queue);
+		executor_pool.setRejectedExecutionHandler((r, executor) -> {
+			log.warn("Too many task to be executed at the same time ! This will not proceed: " + r);
+		});
+		channel_group = AsynchronousChannelGroup.withThreadPool(executor_pool);
 		
 		pressure_measurement_sended = new PressureMeasurement();
 		pressure_measurement_recevied = new PressureMeasurement();
@@ -112,17 +122,26 @@ public class PoolManager {
 		node_scheduler = new ActivityScheduler<>();
 		
 		console.addOrder("ql", "Queue list", "Display actual queue list", getClass(), param -> {
-			if (queue.isEmpty()) {
+			System.out.println("Executor status:");
+			TableList table = new TableList(2);
+			table.addRow("Active", String.valueOf(executor_pool.getActiveCount()));
+			table.addRow("Max capacity", String.valueOf(executor_pool_queue.remainingCapacity()));
+			table.addRow("Completed", String.valueOf(executor_pool.getCompletedTaskCount()));
+			table.addRow("Core pool", String.valueOf(executor_pool.getCorePoolSize()));
+			table.addRow("Pool", String.valueOf(executor_pool.getPoolSize()));
+			table.addRow("Largest pool", String.valueOf(executor_pool.getLargestPoolSize()));
+			table.addRow("Maximum pool", String.valueOf(executor_pool.getMaximumPoolSize()));
+			table.print();
+			System.out.println();
+			
+			if (executor_pool_queue.isEmpty()) {
 				System.out.println("No waiting task to display in queue.");
 			} else {
-				System.out.println("Display " + queue.size() + " waiting tasks");
-				queue.getAllpendingTaskToString().forEach(t -> {
-					System.out.println(t);
+				System.out.println("Display " + executor_pool_queue.size() + " waiting tasks.");
+				executor_pool_queue.stream().forEach(r -> {
+					System.out.println(" * " + r.toString() + " in " + r.getClass().getName());
 				});
 			}
-			queue.getAllExecutorsStatus().forEach(ex -> {
-				System.out.println(ex);
-			});
 		});
 		
 		console.addOrder("nl", "Node list", "Display actual connected node", getClass(), param -> {
@@ -258,7 +277,7 @@ public class PoolManager {
 			PressureMeasurement.toTableHeader(list);
 			pressure_measurement_recevied.getActualStats(false).toTable(list, "Recevied");
 			pressure_measurement_sended.getActualStats(false).toTable(list, "Sended");
-			queue.getPressureMeasurement().getActualStats(false).toTable(list, "Queue");
+			// queue.getPressureMeasurement().getActualStats(false).toTable(list, "Queue");
 			list.print();
 		});
 		
@@ -267,7 +286,7 @@ public class PoolManager {
 			PressureMeasurement.toTableHeader(list);
 			pressure_measurement_recevied.getActualStats(true).toTable(list, "Recevied");
 			pressure_measurement_sended.getActualStats(true).toTable(list, "Sended");
-			queue.getPressureMeasurement().getActualStats(true).toTable(list, "Queue");
+			// queue.getPressureMeasurement().getActualStats(true).toTable(list, "Queue");
 			list.print();
 		});
 		
@@ -299,6 +318,14 @@ public class PoolManager {
 	
 	public Gson getSimpleGson() {
 		return simple_gson;
+	}
+	
+	public ThreadPoolExecutor getExecutorPool() {
+		return executor_pool;
+	}
+	
+	public AsynchronousChannelGroup getChannelGroup() {
+		return channel_group;
 	}
 	
 	private List<InetSocketAddress> bootstrap_servers;
@@ -369,7 +396,14 @@ public class PoolManager {
 			s.waitToStop();
 		});
 		
-		queue.waitToEndCurrentList();
+		executor_pool.shutdown();
+		
+		try {
+			executor_pool.awaitTermination(500, TimeUnit.MILLISECONDS);
+		} catch (InterruptedException e) {
+			log.error("Can't wait to stop executor waiting list", e);
+			executor_pool.shutdownNow();
+		}
 		
 		try {
 			Runtime.getRuntime().removeShutdownHook(shutdown_hook);
@@ -421,10 +455,6 @@ public class PoolManager {
 	
 	public RequestHandler getRequestHandler() {
 		return request_handler;
-	}
-	
-	public ITQueue getQueue() {
-		return queue;
 	}
 	
 	/**

@@ -142,7 +142,7 @@ public class NodelistRequest extends Request<Void> {
 						}
 						return 0;
 					}).forEach(dist_addr -> {
-						dist_addr.addToQueueAndConnectTo();
+						dist_addr.connectTo();
 					});
 				} else {
 					distant_socket_entries.stream().filter(dist_addr -> {
@@ -161,7 +161,7 @@ public class NodelistRequest extends Request<Void> {
 						}
 						return 0;
 					}).forEach(dist_addr -> {
-						dist_addr.addToQueueAndConnectTo();
+						dist_addr.connectTo();
 					});
 				}
 			});
@@ -209,14 +209,14 @@ public class NodelistRequest extends Request<Void> {
 			return log.toString();
 		}
 		
-		private void addToQueueAndConnectTo() {
+		private void connectTo() {
 			if (pool_manager.isListenToThis(socket_addr)) {
 				log.debug("Selected this node via " + socket_addr + ", don't declare new node");
 				return;
 			}
 			
-			pool_manager.getQueue().addToQueue(socket_addr, addr -> {
-				pool_manager.declareNewPotentialDistantServer(addr, new ConnectionCallback() {
+			try {
+				pool_manager.declareNewPotentialDistantServer(socket_addr, new ConnectionCallback() {
 					
 					public void onNewConnectedNode(Node node) {
 						log.info("Autodiscover allowed to connect to " + node + " (provided by " + source_node + ")");
@@ -230,9 +230,9 @@ public class NodelistRequest extends Request<Void> {
 						log.info("Autodiscover cant add an already connected node (" + node + " provided by " + source_node + ")");
 					}
 				});
-			}, (error_addr, e) -> {
-				log.error("Autodiscover operation can't to connect to node via " + error_addr);
-			});
+			} catch (Exception e) {
+				log.error("Autodiscover operation can't to connect to node via " + socket_addr);
+			}
 		}
 	}
 	
