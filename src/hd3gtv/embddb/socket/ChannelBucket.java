@@ -102,31 +102,6 @@ class ChannelBucket {
 		}
 	}
 	
-	void asyncWrite(boolean close_channel_after_send) {
-		channel.write(write_buffer, this, pool_manager.getProtocol().getHandlerWriter(close_channel_after_send));
-		/*try {
-			channel.shutdownInput();
-		} catch (Exception e) {
-			log.debug("Can't temporary close reader", e);
-		}*/
-		
-		/*if (close_channel_after_send) {
-			try {
-				// channel.shutdownOutput();
-				
-				int size = channel.write(buffer).get(5, TimeUnit.SECONDS);
-				log.debug("Send close message, size " + size);// FIXME send before close don't works
-				
-			} catch (Exception e) {
-				log.debug("Can't send last message before close", e);
-			}
-			// buffer.clear();
-			// close(getClass());
-			// channel.write(buffer, this, pool_manager.getProtocol().getHandlerWriter(true));
-		} else {
-		}*/
-	}
-	
 	/**
 	 * @return distant IP address
 	 */
@@ -234,7 +209,29 @@ class ChannelBucket {
 				log.trace("Get from " + toString() + " " + to_send.toString());
 			}
 			int size = encrypt(to_send.getBytes(pool_manager.getProtocol()));
-			asyncWrite(close_channel_after_send);
+			
+			channel.write(write_buffer, this, pool_manager.getProtocol().getHandlerWriter(close_channel_after_send));
+			/*try {
+				channel.shutdownInput();
+			} catch (Exception e) {
+				log.debug("Can't temporary close reader", e);
+			}*/
+			
+			/*if (close_channel_after_send) {
+				try {
+					// channel.shutdownOutput();
+					
+					int size = channel.write(buffer).get(5, TimeUnit.SECONDS);
+					log.debug("Send close message, size " + size);// FIXME send before close don't works
+					
+				} catch (Exception e) {
+					log.debug("Can't send last message before close", e);
+				}
+				// buffer.clear();
+				// close(getClass());
+				// channel.write(buffer, this, pool_manager.getProtocol().getHandlerWriter(true));
+			} else {
+			}*/
 			
 			pressure_measurement_sended.onDatas(size, System.currentTimeMillis() - start_time);
 		} catch (Exception e) {

@@ -131,6 +131,8 @@ public final class Protocol {
 			} catch (Exception e) {
 				failed(e, bucket);
 			}
+			
+			bucket.asyncRead();
 		}
 		
 		public void failed(Throwable e, ChannelBucket bucket) {
@@ -150,7 +152,7 @@ public final class Protocol {
 		
 		public void completed(Integer size, ChannelBucket bucket) {
 			showLogs(size, bucket);
-			bucket.asyncRead();// FIXME why delay before read ?
+			// bucket.asyncRead();// FIXME why delay before read ?
 		}
 		
 		public void failed(Throwable e, ChannelBucket bucket) {
