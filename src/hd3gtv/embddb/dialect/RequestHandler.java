@@ -85,7 +85,7 @@ public class RequestHandler {
 		return null;
 	}
 	
-	public void onReceviedNewBlock(RequestBlock block, Node node) throws WantToCloseLink {
+	public void onReceviedNewBlock(RequestBlock block, Node node) throws WantToCloseLinkException {
 		if (log.isTraceEnabled()) {
 			log.trace("Get " + block.toString() + " from " + node);
 		}

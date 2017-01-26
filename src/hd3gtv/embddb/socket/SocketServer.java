@@ -100,8 +100,8 @@ public class SocketServer extends StoppableThread implements SocketProvider {
 				AsynchronousSocketChannel channel = server.accept().get();
 				Node node = new Node(this, pool_manager, channel);
 				log.info("Client connect " + node);
-				node.getChannelbucket().asyncRead();
-				pool_manager.getNodeList().add(node);
+				node.asyncRead();
+				pool_manager.add(node);
 				
 			} catch (Exception e) {
 				if (isWantToRun()) {
@@ -134,7 +134,7 @@ public class SocketServer extends StoppableThread implements SocketProvider {
 	}
 	
 	public String getTypeName() {
-		return "Distant client to local server";
+		return "DClient>LServer";
 	}
 	
 }

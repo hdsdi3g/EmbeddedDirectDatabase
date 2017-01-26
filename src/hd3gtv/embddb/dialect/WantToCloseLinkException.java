@@ -18,9 +18,9 @@ package hd3gtv.embddb.dialect;
 
 import java.io.IOException;
 
-public class WantToCloseLink extends IOException {
+public class WantToCloseLinkException extends IOException {
 	
-	public WantToCloseLink() {
+	public WantToCloseLinkException() {
 	}
 	
 }

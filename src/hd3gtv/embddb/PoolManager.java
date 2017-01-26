@@ -18,16 +18,21 @@ package hd3gtv.embddb;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.channels.AsynchronousChannelGroup;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.log4j.Logger;
@@ -35,16 +40,23 @@ import org.apache.log4j.Logger;
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 
 import hd3gtv.embddb.dialect.DisconnectRequest;
+import hd3gtv.embddb.dialect.HelloRequest;
+import hd3gtv.embddb.dialect.NodelistRequest;
 import hd3gtv.embddb.dialect.PokeRequest;
 import hd3gtv.embddb.dialect.RequestHandler;
 import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.Protocol;
+import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.embddb.socket.SocketClient;
 import hd3gtv.embddb.socket.SocketServer;
+import hd3gtv.internaltaskqueue.ActivityScheduledAction;
 import hd3gtv.internaltaskqueue.ActivityScheduler;
+import hd3gtv.internaltaskqueue.Procedure;
 import hd3gtv.mydmam.MyDMAM;
 import hd3gtv.tools.AddressMaster;
 import hd3gtv.tools.GsonIgnoreStrategy;
@@ -62,7 +74,6 @@ public class PoolManager {
 	private RequestHandler request_handler;
 	
 	private Protocol protocol;
-	private NodeList node_list;
 	
 	private AsynchronousChannelGroup channel_group;
 	private BlockingQueue<Runnable> executor_pool_queue;
@@ -76,10 +87,16 @@ public class PoolManager {
 	private final UUID uuid_ref;
 	
 	private ActivityScheduler<Node> node_scheduler;
-	private ActivityScheduler<NodeList> nodelist_scheduler;
+	private ActivityScheduler<PoolManager> pool_scheduler;
 	
 	private PressureMeasurement pressure_measurement_sended;
 	private PressureMeasurement pressure_measurement_recevied;
+	
+	/**
+	 * synchronizedList
+	 */
+	private List<Node> nodes;
+	private AtomicBoolean autodiscover_can_be_remake = null;
 	
 	public static final Type type_InetSocketAddress_String = new TypeToken<ArrayList<InetSocketAddress>>() {
 	}.getType();
@@ -111,15 +128,16 @@ public class PoolManager {
 		pressure_measurement_sended = new PressureMeasurement();
 		pressure_measurement_recevied = new PressureMeasurement();
 		
-		node_list = new NodeList(this);
+		nodes = Collections.synchronizedList(new ArrayList<>());
+		autodiscover_can_be_remake = new AtomicBoolean(true);
 		uuid_ref = UUID.randomUUID();
 		addr_master = new AddressMaster();
 		protocol = new Protocol(master_password_key);
 		shutdown_hook = new ShutdownHook();
 		request_handler = new RequestHandler(this);
 		
-		nodelist_scheduler = new ActivityScheduler<>();
-		nodelist_scheduler.add(node_list, node_list.getScheduledAction());
+		pool_scheduler = new ActivityScheduler<>();
+		pool_scheduler.add(this, getScheduledAction());
 		node_scheduler = new ActivityScheduler<>();
 		
 		console.addOrder("ql", "Queue list", "Display actual queue list", getClass(), param -> {
@@ -147,7 +165,7 @@ public class PoolManager {
 		
 		console.addOrder("nl", "Node list", "Display actual connected node", getClass(), param -> {
 			TableList table = new TableList(5);
-			node_list.getAllNodes().forEach(node -> {
+			getAllNodes().forEach(node -> {
 				node.addToActualStatus(table);
 			});
 			table.print();
@@ -190,9 +208,9 @@ public class PoolManager {
 					}
 				});
 			} else {
-				Node node = node_list.get(addr);
+				Node node = get(addr);
 				if (node == null) {
-					List<Node> search_nodes = node_list.get(addr.getAddress());
+					List<Node> search_nodes = get(addr.getAddress());
 					if (search_nodes.isEmpty()) {
 						System.out.println("Can't found node " + addr + " in current list. Please check with nl command");
 					} else if (search_nodes.size() > 1) {
@@ -207,7 +225,7 @@ public class PoolManager {
 						node.sendRequest(DisconnectRequest.class, "Manual via console");
 					} else if (param.startsWith("close")) {
 						node.close(getClass());
-						node_list.remove(node);
+						remove(node);
 					} else if (param.startsWith("isopen")) {
 						System.out.println("Is now open: " + node.isOpenSocket());
 					} else {
@@ -220,10 +238,10 @@ public class PoolManager {
 		});
 		
 		console.addOrder("gcnodes", "Garbage collector node list", "Purge closed nodes", getClass(), param -> {
-			node_list.purgeClosedNodes();
+			purgeClosedNodes();
 		});
 		console.addOrder("closenodes", "Close all nodes", "Force to disconnect all connected nodes", getClass(), param -> {
-			node_list.sayToAllNodesToDisconnectMe(false);
+			sayToAllNodesToDisconnectMe(false);
 		});
 		
 		console.addOrder("sch", "Activity scheduler", "Display the activated regular task list", getClass(), param -> {
@@ -235,13 +253,13 @@ public class PoolManager {
 				node_scheduler.getAllScheduledTasks(table);
 			}
 			
-			if (nodelist_scheduler.isEmpty()) {
+			if (pool_scheduler.isEmpty()) {
 				if (node_scheduler.isEmpty()) {
 					System.out.println();
 				}
 				System.out.println("No regular tasks to display for nodelist.");
 			} else {
-				nodelist_scheduler.getAllScheduledTasks(table);
+				pool_scheduler.getAllScheduledTasks(table);
 			}
 			
 			table.print();
@@ -269,16 +287,16 @@ public class PoolManager {
 		
 		console.addOrder("poke", "Poke servers", "Poke all server, or one if specified", getClass(), param -> {
 			if (param == null) {
-				node_list.getAllNodes().forEach(node -> {
+				getAllNodes().forEach(node -> {
 					System.out.println("Poke " + node);
 					node.sendRequest(PokeRequest.class, null);
 				});
 			} else {
 				InetSocketAddress addr = parseAddressFromCmdConsole(param);
 				if (addr != null) {
-					Node node = node_list.get(addr);
+					Node node = get(addr);
 					if (node == null) {
-						node_list.get(addr.getAddress()).forEach(n -> {
+						get(addr.getAddress()).forEach(n -> {
 							System.out.println("Poke " + n);
 							n.sendRequest(PokeRequest.class, null);
 						});
@@ -408,8 +426,8 @@ public class PoolManager {
 	public void closeAll() {
 		log.info("Close all functions: clients, server, autodiscover... It's a blocking operation");
 		
-		nodelist_scheduler.remove(node_list);
-		node_list.sayToAllNodesToDisconnectMe(true);
+		pool_scheduler.remove(this);
+		sayToAllNodesToDisconnectMe(true);
 		
 		local_servers.forEach(s -> {
 			s.wantToStop();
@@ -456,23 +474,19 @@ public class PoolManager {
 			return;
 		}
 		
-		Node node = node_list.get(server);
+		Node node = get(server);
 		
 		if (node != null) {
 			callback_on_connection.alreadyConnectedNode(node);
 		} else {
 			new SocketClient(this, server, n -> {
-				if (node_list.add(n)) {
+				if (add(n)) {
 					callback_on_connection.onNewConnectedNode(n);
 				} else {
-					callback_on_connection.alreadyConnectedNode(node_list.get(server));
+					callback_on_connection.alreadyConnectedNode(get(server));
 				}
 			});
 		}
-	}
-	
-	public NodeList getNodeList() {
-		return node_list;
 	}
 	
 	public RequestHandler getRequestHandler() {
@@ -519,6 +533,214 @@ public class PoolManager {
 			}
 		}
 		return new InetSocketAddress(full_addr, port);
+	}
+	
+	/**
+	 * Check if node is already open, else close it.
+	 * @return null if empty
+	 */
+	public Node get(InetSocketAddress addr) {
+		if (addr == null) {
+			throw new NullPointerException("\"addr\" can't to be null");
+		}
+		
+		Optional<Node> o_node = nodes.stream().filter(n -> {
+			return addr.equals(n.getSocketAddr());
+		}).findFirst();
+		
+		if (o_node.isPresent() == false) {
+			return null;
+		}
+		
+		Node n = o_node.get();
+		
+		if (n.isOpenSocket() == false) {
+			remove(n);
+			return null;
+		}
+		
+		return n;
+	}
+	
+	/**
+	 * Check if nodes are already open, else close it.
+	 * @return empty if emtpy
+	 */
+	public List<Node> get(InetAddress addr) {
+		if (addr == null) {
+			throw new NullPointerException("\"addr\" can't to be null");
+		}
+		
+		List<Node> result = nodes.stream().filter(n -> {
+			InetSocketAddress n_addr = n.getSocketAddr();
+			if (n_addr == null) {
+				return false;
+			}
+			return n_addr.getAddress().equals(addr);
+		}).collect(Collectors.toList());
+		
+		result.removeIf(n -> {
+			if (n.isOpenSocket() == false) {
+				remove(n);
+				return true;
+			}
+			return false;
+		});
+		
+		return result;
+	}
+	
+	/**
+	 * Check if node is already open, else close it.
+	 * @return null if empty
+	 */
+	public Node get(UUID uuid) {
+		if (uuid == null) {
+			throw new NullPointerException("\"uuid\" can't to be null");
+		}
+		
+		Optional<Node> o_node = nodes.stream().filter(n -> {
+			return n.equalsThisUUID(uuid);
+		}).findFirst();
+		
+		if (o_node.isPresent() == false) {
+			return null;
+		}
+		
+		Node n = o_node.get();
+		
+		if (n.isOpenSocket() == false) {
+			remove(n);
+			return null;
+		}
+		
+		return n;
+	}
+	
+	public void purgeClosedNodes() {
+		nodes.removeIf(n -> {
+			if (n.isOpenSocket()) {
+				return false;
+			}
+			autodiscover_can_be_remake.set(true);
+			return true;
+		});
+		
+		if (nodes.isEmpty()) {
+			connectToBootstrapPotentialNodes("Opened nodes list empty after purge");
+		}
+	}
+	
+	public void remove(Node node) {
+		log.info("Remove node " + node);
+		
+		autodiscover_can_be_remake.set(true);
+		nodes.remove(node);
+		
+		if (log.isDebugEnabled()) {
+			log.debug("Full node list: " + nodes);
+		}
+		
+		node_scheduler.remove(node);
+		
+		if (nodes.isEmpty()) {
+			connectToBootstrapPotentialNodes("Opened nodes list empty after purge");
+		}
+	}
+	
+	/**
+	 * @return false if node is already added
+	 */
+	public boolean add(Node node) {
+		if (nodes.contains(node)) {
+			if (node.isOpenSocket()) {
+				return false;
+			}
+		}
+		log.info("Add node " + node);
+		autodiscover_can_be_remake.set(true);
+		nodes.add(node);
+		request_handler.getRequestByClass(HelloRequest.class).sendRequest(null, node);
+		
+		if (log.isDebugEnabled()) {
+			log.debug("Full node list: " + nodes);
+		}
+		
+		return true;
+	}
+	
+	/**
+	 * @return array of objects (Node.getAutodiscoverIDCard())
+	 */
+	public JsonArray makeAutodiscoverList() {
+		JsonArray autodiscover_list = new JsonArray();
+		nodes.forEach(n -> {
+			JsonObject jo = n.getAutodiscoverIDCard();
+			if (jo != null) {
+				autodiscover_list.add(jo);
+			}
+		});
+		return autodiscover_list;
+	}
+	
+	public ActivityScheduledAction<PoolManager> getScheduledAction() {
+		return new ActivityScheduledAction<PoolManager>() {
+			
+			public String getScheduledActionName() {
+				return "Purge closed nodes and send autodiscover requests";
+			}
+			
+			public boolean onScheduledActionError(Exception e) {
+				log.error("Can't do reguar scheduled nodelist operations");
+				return true;
+			}
+			
+			public TimeUnit getScheduledActionPeriodUnit() {
+				return TimeUnit.SECONDS;
+			}
+			
+			public long getScheduledActionPeriod() {
+				return 60;
+			}
+			
+			public long getScheduledActionInitialDelay() {
+				return 10;
+			}
+			
+			public Procedure getRegularScheduledAction() {
+				return () -> {
+					purgeClosedNodes();
+					if (autodiscover_can_be_remake.compareAndSet(true, false)) {
+						RequestBlock to_send = request_handler.getRequestByClass(NodelistRequest.class).createRequest(null);
+						if (to_send != null) {
+							nodes.forEach(n -> {
+								n.sendBlock(to_send, false);
+							});
+						}
+					}
+				};
+			}
+		};
+	}
+	
+	public void sayToAllNodesToDisconnectMe(boolean blocking) {
+		RequestBlock to_send = request_handler.getRequestByClass(DisconnectRequest.class).createRequest("All nodes instance shutdown");
+		nodes.forEach(n -> {
+			n.sendBlock(to_send, true);
+		});
+		
+		if (blocking) {
+			try {
+				while (nodes.isEmpty() == false) {
+					Thread.sleep(1);
+				}
+			} catch (InterruptedException e1) {
+			}
+		}
+	}
+	
+	public Stream<Node> getAllNodes() {
+		return nodes.stream();
 	}
 	
 }

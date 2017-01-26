@@ -31,7 +31,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import hd3gtv.embddb.NodeList;
 import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
 import hd3gtv.embddb.socket.RequestBlock;
@@ -71,8 +70,6 @@ public class NodelistRequest extends Request<Void> {
 				jo_list.add(je.getAsJsonObject());
 			});
 			
-			NodeList node_list = pool_manager.getNodeList();
-			
 			UUID this_uuid = pool_manager.getUUIDRef();
 			
 			jo_list.stream().filter(jo -> {
@@ -81,7 +78,7 @@ public class NodelistRequest extends Request<Void> {
 				 */
 				try {
 					UUID uuid = Node.getUUIDFromAutodiscoverIDCard(jo);
-					return uuid.equals(this_uuid) == false && node_list.get(uuid) == null;
+					return uuid.equals(this_uuid) == false && pool_manager.get(uuid) == null;
 				} catch (Exception e) {
 					log.warn("Invalid UUID format in json " + list.toString() + " from " + source_node, e);
 					return false;
@@ -237,7 +234,7 @@ public class NodelistRequest extends Request<Void> {
 	}
 	
 	public RequestBlock createRequest(Void opt) {
-		return new RequestBlock(getHandleName()).createEntry("json", pool_manager.getNodeList().makeAutodiscoverList().toString());
+		return new RequestBlock(getHandleName()).createEntry("json", pool_manager.makeAutodiscoverList().toString());
 	}
 	
 	protected boolean isCloseChannelRequest(Void options) {

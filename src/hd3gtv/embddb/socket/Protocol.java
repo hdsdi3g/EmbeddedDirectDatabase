@@ -114,57 +114,61 @@ public final class Protocol {
 		return result;
 	}
 	
-	class SocketHandlerReader implements CompletionHandler<Integer, ChannelBucket> {
+	class SocketHandlerReader implements CompletionHandler<Integer, Node> {
 		
-		public void completed(Integer size, ChannelBucket bucket) {
+		public void completed(Integer size, Node node) {
 			if (size < 1) {
-				log.debug("Get empty datas from " + bucket.toString());
+				log.debug("Get empty datas from " + node.toString());
 				// bucket.close(getClass());
 				return;
 			}
 			
 			if (log.isTraceEnabled()) {
-				log.trace("Recevied from " + bucket + " " + size + " bytes");
+				log.trace("Recevied from " + node + " " + size + " bytes");
 			}
 			
-			if (bucket.isOpen()) {
+			if (node.isOpenSocket()) {
 				try {
-					bucket.doProcessReceviedDatas();
+					node.doProcessReceviedDatas();
 				} catch (Exception e) {
-					failed(e, bucket);
+					failed(e, node);
 				}
 			}
 			
-			if (bucket.isOpen()) {
-				bucket.asyncRead();
+			if (node.isOpenSocket()) {
+				node.asyncRead();
 			}
 		}
 		
-		public void failed(Throwable e, ChannelBucket bucket) {
-			log.error("Channel " + bucket + " failed, close socket", e);
-			bucket.close(getClass());
+		public void failed(Throwable e, Node node) {
+			if (e instanceof AsynchronousCloseException) {
+				log.debug("Channel " + node + " was closed, so can't close it.");
+			} else {
+				log.error("Channel " + node + " failed, close socket because " + e.getMessage());
+				node.close(getClass());
+			}
 		}
 		
 	}
 	
-	class SocketHandlerWriter implements CompletionHandler<Integer, ChannelBucket> {
+	class SocketHandlerWriter implements CompletionHandler<Integer, Node> {
 		
-		protected void showLogs(Integer size, ChannelBucket bucket) {
+		protected void showLogs(Integer size, Node node) {
 			if (log.isTraceEnabled()) {
-				log.trace("Sended to " + bucket + " " + size + " bytes");
+				log.trace("Sended to " + node + " " + size + " bytes");
 			}
 		}
 		
-		public void completed(Integer size, ChannelBucket bucket) {
-			showLogs(size, bucket);
+		public void completed(Integer size, Node node) {
+			showLogs(size, node);
 		}
 		
-		public void failed(Throwable e, ChannelBucket bucket) {
+		public void failed(Throwable e, Node node) {
 			if (e instanceof AsynchronousCloseException) {
-				log.debug("Channel " + bucket + " was closed, so can't close it.");
+				log.debug("Channel " + node + " was closed, so can't close it.");
 			} else {
-				log.error("Channel " + bucket + " failed, close socket because " + e.getMessage());
-				bucket.close(getClass());
+				log.error("Channel " + node + " failed, close socket because " + e.getMessage());
+				node.close(getClass());
 			}
 		}
 		
@@ -172,10 +176,10 @@ public final class Protocol {
 	
 	class SocketHandlerWriterCloser extends SocketHandlerWriter {
 		
-		public void completed(Integer size, ChannelBucket bucket) {
-			showLogs(size, bucket);
-			log.info("Manual close socket after send datas to other node " + bucket.toString());
-			bucket.close(getClass());
+		public void completed(Integer size, Node node) {
+			showLogs(size, node);
+			log.info("Manual close socket after send datas to other node " + node.toString());
+			node.close(getClass());
 		}
 		
 	}

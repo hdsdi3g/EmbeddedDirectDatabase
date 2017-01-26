@@ -68,7 +68,7 @@ public class SocketClient implements SocketProvider {
 				return;
 			}
 			log.info("Connected to " + new_node);
-			new_node.getChannelbucket().asyncRead();
+			new_node.asyncRead();
 			callback_on_connection.accept(new_node);
 		}
 		
@@ -83,6 +83,6 @@ public class SocketClient implements SocketProvider {
 	}
 	
 	public String getTypeName() {
-		return "Local client to distant server";
+		return "LClient>DServer";
 	}
 }

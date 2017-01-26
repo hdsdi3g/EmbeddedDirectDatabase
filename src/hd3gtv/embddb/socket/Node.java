@@ -19,11 +19,16 @@ package hd3gtv.embddb.socket;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.ReadPendingException;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
 
@@ -33,8 +38,10 @@ import hd3gtv.embddb.PoolManager;
 import hd3gtv.embddb.dialect.ErrorReturn;
 import hd3gtv.embddb.dialect.PokeRequest;
 import hd3gtv.embddb.dialect.Request;
+import hd3gtv.embddb.dialect.WantToCloseLinkException;
 import hd3gtv.internaltaskqueue.ActivityScheduledAction;
 import hd3gtv.internaltaskqueue.Procedure;
+import hd3gtv.tools.PressureMeasurement;
 import hd3gtv.tools.TableList;
 
 public class Node {
@@ -42,13 +49,19 @@ public class Node {
 	private static final Logger log = Logger.getLogger(Node.class);
 	
 	private PoolManager pool_manager;
-	private final ChannelBucket channelbucket;
 	private ArrayList<InetSocketAddress> local_server_node_addr;
 	
 	private UUID uuid_ref;
 	private long server_delta_time;
-	private SocketProvider provider;
 	private InetSocketAddress socket_addr;
+	
+	private final SocketProvider provider;
+	private final ByteBuffer read_buffer;
+	private final ByteBuffer write_buffer;
+	private final AsynchronousSocketChannel channel;
+	private final PressureMeasurement pressure_measurement_sended;
+	private final PressureMeasurement pressure_measurement_recevied;
+	private final AtomicLong last_activity;
 	
 	public Node(SocketProvider provider, PoolManager pool_manager, AsynchronousSocketChannel channel) {
 		this.provider = provider;
@@ -59,13 +72,26 @@ public class Node {
 		if (pool_manager == null) {
 			throw new NullPointerException("\"pool_manager\" can't to be null");
 		}
+		this.channel = channel;
 		if (channel == null) {
 			throw new NullPointerException("\"channel\" can't to be null");
 		}
 		
-		channelbucket = new ChannelBucket(pool_manager, this, channel);
+		this.read_buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
+		this.write_buffer = ByteBuffer.allocateDirect(Protocol.BUFFER_SIZE);
+		
+		this.pressure_measurement_recevied = pool_manager.getPressureMeasurementRecevied();
+		if (pressure_measurement_recevied == null) {
+			throw new NullPointerException("\"pressure_measurement_recevied\" can't to be null");
+		}
+		this.pressure_measurement_sended = pool_manager.getPressureMeasurementSended();
+		if (pressure_measurement_sended == null) {
+			throw new NullPointerException("\"pressure_measurement_sended\" can't to be null");
+		}
+		last_activity = new AtomicLong(System.currentTimeMillis());
+		
 		try {
-			socket_addr = channelbucket.getRemoteSocketAddr();
+			socket_addr = (InetSocketAddress) channel.getRemoteAddress();
 		} catch (IOException e) {
 		}
 		server_delta_time = 0;
@@ -77,7 +103,7 @@ public class Node {
 				socket_addr = ((SocketClient) provider).getDistantServerAddr();
 			} else
 				try {
-					socket_addr = channelbucket.getRemoteSocketAddr();
+					socket_addr = (InetSocketAddress) channel.getRemoteAddress();
 				} catch (IOException e) {
 					log.debug("Can't get addr", e);
 				}
@@ -86,11 +112,7 @@ public class Node {
 	}
 	
 	public boolean isOpenSocket() {
-		return channelbucket.isOpen();
-	}
-	
-	public void close(Class<?> by) {
-		channelbucket.close(by);
+		return isOpen();
 	}
 	
 	/**
@@ -104,27 +126,12 @@ public class Node {
 		return false;
 	}
 	
-	public long getLastActivityDate() {
-		return channelbucket.getLastActivityDate();
-	}
-	
 	public String toString() {
 		if (uuid_ref == null) {
-			return getSocketAddr().getHostString() + " port " + getSocketAddr().getPort() + " (no uuid), " + provider.getTypeName();
+			return getSocketAddr().getHostString() + "/" + getSocketAddr().getPort() + " (no uuid), " + provider.getTypeName();
 		} else {
-			return getSocketAddr().getHostString() + " port " + getSocketAddr().getPort() + ", " + uuid_ref.toString().substring(0, 6) + ", " + provider.getTypeName();
+			return getSocketAddr().getHostString() + "/" + getSocketAddr().getPort() + " " + uuid_ref.toString().substring(0, 6) + " [" + provider.getTypeName() + "]";
 		}
-	}
-	
-	public ChannelBucket getChannelbucket() {
-		return channelbucket;
-	}
-	
-	/**
-	 * Via Channelbucket
-	 */
-	public int hashCode() {
-		return this.getChannelbucket().hashCode();
 	}
 	
 	/**
@@ -155,7 +162,7 @@ public class Node {
 	public void onErrorReturnFromNode(ErrorReturn error) {
 		if (error.isDisconnectme()) {
 			log.warn("Node (" + error.getNode() + ") say: \"" + error.getMessage() + "\"" + " by " + error.getCaller() + " at " + new Date(error.getDate()) + " and want to disconnect");
-			channelbucket.close(getClass());
+			close(getClass());
 		} else {
 			log.info("Node (" + error.getNode() + ") say: \"" + error.getMessage() + "\"" + " by " + error.getCaller() + " at " + new Date(error.getDate()));
 		}
@@ -177,10 +184,10 @@ public class Node {
 	 */
 	public void sendBlock(RequestBlock to_send, boolean close_channel_after_send) {
 		try {
-			channelbucket.sendData(to_send, close_channel_after_send);
+			sendData(to_send, close_channel_after_send);
 		} catch (IOException e) {
 			log.error("Can't send datas to " + toString() + " > " + to_send.getRequestName() + ". Closing connection");
-			channelbucket.close(getClass());
+			close(getClass());
 		}
 	}
 	
@@ -207,7 +214,7 @@ public class Node {
 		if (uuid.equals(pool_manager.getUUIDRef())) {
 			throw new IOException("Invalid UUID for " + toString() + ", it's the same as local manager ! (" + uuid_ref.toString() + ")");
 		}
-		Node n = pool_manager.getNodeList().get(uuid);
+		Node n = pool_manager.get(uuid);
 		if (n == null) {
 			throw new IOException("This node " + toString() + " was not declared in node_list");
 		} else if (equals(n) == false) {
@@ -327,7 +334,7 @@ public class Node {
 			
 			public boolean onScheduledActionError(Exception e) {
 				log.warn("Can't execute node scheduled actions");
-				pool_manager.getNodeList().remove(current_node);
+				pool_manager.remove(current_node);
 				return false;
 			}
 			
@@ -345,11 +352,144 @@ public class Node {
 			
 			public Procedure getRegularScheduledAction() {
 				return () -> {
-					current_node.channelbucket.checkIfOpen();
+					current_node.checkIfOpen();
 					pool_manager.getRequestHandler().getRequestByClass(PokeRequest.class).sendRequest(null, current_node);
 				};
 			}
 		};
+	}
+	
+	public boolean isOpen() {
+		return channel.isOpen();
+	}
+	
+	public long getLastActivityDate() {
+		return last_activity.get();
+	}
+	
+	private void checkIfOpen() throws IOException {
+		if (isOpen() == false) {
+			throw new IOException("Channel for " + toString() + " is closed");
+		}
+	}
+	
+	public void asyncRead() {
+		read_buffer.clear();
+		try {
+			channel.read(read_buffer, this, pool_manager.getProtocol().getHandlerReader());
+		} catch (ReadPendingException e) {
+			log.trace("No two reads at the same time for " + toString());
+		}
+	}
+	
+	public void close(Class<?> by) {
+		if (log.isDebugEnabled()) {
+			log.debug("Want to close node " + toString() + ", asked by " + by.getSimpleName());
+		}
+		
+		read_buffer.clear();
+		write_buffer.clear();
+		if (channel.isOpen()) {
+			try {
+				channel.close();
+			} catch (ClosedChannelException e) {
+				log.debug("Node was closed: " + e.getMessage());
+			} catch (IOException e) {
+				log.warn("Can't close properly channel " + toString(), e);
+			}
+		}
+		pool_manager.remove(this);
+	}
+	
+	private byte[] decrypt() throws GeneralSecurityException {
+		read_buffer.flip();
+		byte[] content = new byte[read_buffer.remaining()];
+		if (log.isTraceEnabled()) {
+			log.trace("Prepare " + content.length + " bytes to decrypt");
+		}
+		
+		read_buffer.get(content, 0, content.length);
+		read_buffer.clear();
+		
+		byte[] result = pool_manager.getProtocol().decrypt(content, 0, content.length);
+		if (log.isTraceEnabled()) {
+			log.trace("Get " + result.length + " bytes decrypted");
+		}
+		
+		return result;
+	}
+	
+	private int encrypt(byte[] data) throws GeneralSecurityException {
+		if (log.isTraceEnabled()) {
+			log.trace("Prepare " + data.length + " bytes to encrypt");
+		}
+		
+		write_buffer.clear();
+		
+		byte[] result = pool_manager.getProtocol().encrypt(data, 0, data.length);
+		
+		write_buffer.put(result);
+		
+		write_buffer.flip();
+		
+		if (log.isTraceEnabled()) {
+			log.trace("Set " + result.length + " bytes encrypted");
+		}
+		
+		return result.length;
+	}
+	
+	public void doProcessReceviedDatas() throws Exception {
+		final long start_time = System.currentTimeMillis();
+		last_activity.set(start_time);
+		
+		final byte[] datas = decrypt();
+		
+		try {
+			RequestBlock block = new RequestBlock(pool_manager.getProtocol(), datas);
+			pool_manager.getRequestHandler().onReceviedNewBlock(block, this);
+			pressure_measurement_recevied.onDatas(datas.length, System.currentTimeMillis() - start_time);
+		} catch (IOException e) {
+			if (e instanceof WantToCloseLinkException) {
+				log.debug("Handler want to close link");
+				close(getClass());
+				pressure_measurement_recevied.onDatas(datas.length, System.currentTimeMillis() - start_time);
+				return;
+			} else {
+				log.error("Can't extract sended blocks " + toString(), e);
+				close(getClass());
+			}
+		}
+	}
+	
+	/**
+	 * It will add to queue.
+	 * @throws IOException if channel is closed.
+	 */
+	private void sendData(RequestBlock to_send, boolean close_channel_after_send) throws IOException {
+		final long start_time = System.currentTimeMillis();
+		
+		checkIfOpen();
+		
+		try {
+			if (log.isTraceEnabled()) {
+				log.trace("Get from " + toString() + " " + to_send.toString());
+			}
+			int size = encrypt(to_send.getBytes(pool_manager.getProtocol()));
+			
+			channel.write(write_buffer, this, pool_manager.getProtocol().getHandlerWriter(close_channel_after_send));
+			
+			pressure_measurement_sended.onDatas(size, System.currentTimeMillis() - start_time);
+		} catch (Exception e) {
+			log.error("Can't send datas " + toString(), e);
+		}
+	}
+	
+	/**
+	 * @return channel.hashCode
+	 */
+	public int hashCode() {
+		return channel.hashCode();
 	}
 	
 }
