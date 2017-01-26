@@ -128,7 +128,7 @@ public class Node {
 	
 	public String toString() {
 		if (uuid_ref == null) {
-			return getSocketAddr().getHostString() + "/" + getSocketAddr().getPort() + " (no uuid), " + provider.getTypeName();
+			return getSocketAddr().getHostString() + "/" + getSocketAddr().getPort() + " (no uuid), " + " [" + provider.getTypeName() + "]";
 		} else {
 			return getSocketAddr().getHostString() + "/" + getSocketAddr().getPort() + " " + uuid_ref.toString().substring(0, 6) + " [" + provider.getTypeName() + "]";
 		}
