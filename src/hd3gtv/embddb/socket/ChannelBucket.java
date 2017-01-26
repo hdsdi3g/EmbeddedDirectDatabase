@@ -19,8 +19,8 @@ package hd3gtv.embddb.socket;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
-import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.AsynchronousSocketChannel;
+import java.nio.channels.ClosedChannelException;
 import java.nio.channels.ReadPendingException;
 import java.security.GeneralSecurityException;
 import java.util.concurrent.atomic.AtomicLong;
@@ -125,7 +125,7 @@ class ChannelBucket {
 		if (channel.isOpen()) {
 			try {
 				channel.close();
-			} catch (AsynchronousCloseException e) {
+			} catch (ClosedChannelException e) {
 				log.debug("Node was closed: " + e.getMessage());
 			} catch (IOException e) {
 				log.warn("Can't close properly channel " + toString(), e);
@@ -211,27 +211,6 @@ class ChannelBucket {
 			int size = encrypt(to_send.getBytes(pool_manager.getProtocol()));
 			
 			channel.write(write_buffer, this, pool_manager.getProtocol().getHandlerWriter(close_channel_after_send));
-			/*try {
-				channel.shutdownInput();
-			} catch (Exception e) {
-				log.debug("Can't temporary close reader", e);
-			}*/
-			
-			/*if (close_channel_after_send) {
-				try {
-					// channel.shutdownOutput();
-					
-					int size = channel.write(buffer).get(5, TimeUnit.SECONDS);
-					log.debug("Send close message, size " + size);// FIXME send before close don't works
-					
-				} catch (Exception e) {
-					log.debug("Can't send last message before close", e);
-				}
-				// buffer.clear();
-				// close(getClass());
-				// channel.write(buffer, this, pool_manager.getProtocol().getHandlerWriter(true));
-			} else {
-			}*/
 			
 			pressure_measurement_sended.onDatas(size, System.currentTimeMillis() - start_time);
 		} catch (Exception e) {

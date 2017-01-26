@@ -17,6 +17,7 @@
 package hd3gtv.embddb.socket;
 
 import java.io.UnsupportedEncodingException;
+import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.CompletionHandler;
 import java.nio.charset.Charset;
 import java.security.GeneralSecurityException;
@@ -126,10 +127,12 @@ public final class Protocol {
 				log.trace("Recevied from " + bucket + " " + size + " bytes");
 			}
 			
-			try {
-				bucket.doProcessReceviedDatas();
-			} catch (Exception e) {
-				failed(e, bucket);
+			if (bucket.isOpen()) {
+				try {
+					bucket.doProcessReceviedDatas();
+				} catch (Exception e) {
+					failed(e, bucket);
+				}
 			}
 			
 			if (bucket.isOpen()) {
@@ -154,12 +157,15 @@ public final class Protocol {
 		
 		public void completed(Integer size, ChannelBucket bucket) {
 			showLogs(size, bucket);
-			// bucket.asyncRead();// FIXME why delay before read ?
 		}
 		
 		public void failed(Throwable e, ChannelBucket bucket) {
-			log.error("Channel " + bucket + " failed, close socket because " + e.getMessage());
-			bucket.close(getClass());
+			if (e instanceof AsynchronousCloseException) {
+				log.debug("Channel " + bucket + " was closed, so can't close it.");
+			} else {
+				log.error("Channel " + bucket + " failed, close socket because " + e.getMessage());
+				bucket.close(getClass());
+			}
 		}
 		
 	}
