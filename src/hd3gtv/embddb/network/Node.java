@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 7 janv. 2017
  * 
 */
-package hd3gtv.embddb.socket;
+package hd3gtv.embddb.network;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -23,7 +23,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.ReadPendingException;
-import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.UUID;
@@ -34,11 +33,6 @@ import org.apache.log4j.Logger;
 
 import com.google.gson.JsonObject;
 
-import hd3gtv.embddb.PoolManager;
-import hd3gtv.embddb.dialect.ErrorReturn;
-import hd3gtv.embddb.dialect.PokeRequest;
-import hd3gtv.embddb.dialect.Request;
-import hd3gtv.embddb.dialect.WantToCloseLinkException;
 import hd3gtv.internaltaskqueue.ActivityScheduledAction;
 import hd3gtv.internaltaskqueue.Procedure;
 import hd3gtv.tools.PressureMeasurement;
@@ -63,7 +57,7 @@ public class Node {
 	private final PressureMeasurement pressure_measurement_recevied;
 	private final AtomicLong last_activity;
 	
-	public Node(SocketProvider provider, PoolManager pool_manager, AsynchronousSocketChannel channel) {
+	Node(SocketProvider provider, PoolManager pool_manager, AsynchronousSocketChannel channel) {
 		this.provider = provider;
 		if (provider == null) {
 			throw new NullPointerException("\"provider\" can't to be null");
@@ -112,7 +106,7 @@ public class Node {
 	}
 	
 	public boolean isOpenSocket() {
-		return isOpen();
+		return channel.isOpen();
 	}
 	
 	/**
@@ -159,7 +153,7 @@ public class Node {
 		return this.getSocketAddr().equals(other.getSocketAddr());
 	}
 	
-	public void onErrorReturnFromNode(ErrorReturn error) {
+	void onErrorReturnFromNode(ErrorReturn error) {
 		if (error.isDisconnectme()) {
 			log.warn("Node (" + error.getNode() + ") say: \"" + error.getMessage() + "\"" + " by " + error.getCaller() + " at " + new Date(error.getDate()) + " and want to disconnect");
 			close(getClass());
@@ -182,7 +176,7 @@ public class Node {
 	/**
 	 * It will add to queue
 	 */
-	public void sendBlock(RequestBlock to_send, boolean close_channel_after_send) {
+	public void sendBlock(DataBlock to_send, boolean close_channel_after_send) {
 		try {
 			sendData(to_send, close_channel_after_send);
 		} catch (IOException e) {
@@ -191,7 +185,7 @@ public class Node {
 		}
 	}
 	
-	public void setUUIDRef(UUID uuid) throws IOException {
+	void setUUIDRef(UUID uuid) throws IOException {
 		if (uuid == null) {
 			throw new NullPointerException("\"uuid_ref\" can't to be null");
 		}
@@ -204,7 +198,7 @@ public class Node {
 		check(uuid);
 	}
 	
-	public void check(UUID uuid) throws IOException {
+	void check(UUID uuid) throws IOException {
 		if (this.uuid_ref == null) {
 			return;
 		}
@@ -254,7 +248,7 @@ public class Node {
 		return uuid_ref;
 	}
 	
-	public void setLocalServerNodeAddresses(ArrayList<InetSocketAddress> local_server_node_addr) throws IOException {
+	void setLocalServerNodeAddresses(ArrayList<InetSocketAddress> local_server_node_addr) throws IOException {
 		this.local_server_node_addr = local_server_node_addr;
 		if (local_server_node_addr == null) {
 			throw new IOException("\"local_server_node_addr\" can't to be null");
@@ -268,7 +262,7 @@ public class Node {
 	/**
 	 * @return null if not uuid or closed
 	 */
-	public JsonObject getAutodiscoverIDCard() {
+	JsonObject getAutodiscoverIDCard() {
 		if (uuid_ref == null | isOpenSocket() == false) {
 			return null;
 		}
@@ -278,21 +272,21 @@ public class Node {
 		return jo;
 	}
 	
-	public static UUID getUUIDFromAutodiscoverIDCard(JsonObject item) throws NullPointerException {
+	static UUID getUUIDFromAutodiscoverIDCard(JsonObject item) throws NullPointerException {
 		if (item.has("uuid")) {
 			return UUID.fromString(item.get("uuid").getAsString());
 		}
 		throw new NullPointerException("Missing uuid item in json " + item.toString());
 	}
 	
-	public static ArrayList<InetSocketAddress> getAddressFromAutodiscoverIDCard(PoolManager pool_manager, JsonObject item) throws NullPointerException, UnknownHostException {
+	static ArrayList<InetSocketAddress> getAddressFromAutodiscoverIDCard(PoolManager pool_manager, JsonObject item) throws NullPointerException, UnknownHostException {
 		if (item.has("server_addr") == false) {
 			throw new NullPointerException("Missing addr/port items in json " + item.toString());
 		}
 		return pool_manager.getSimpleGson().fromJson(item.get("server_addr"), PoolManager.type_InetSocketAddress_String);
 	}
 	
-	public void setDistantDate(long server_date) {
+	void setDistantDate(long server_date) {
 		long new_delay = server_date - System.currentTimeMillis();
 		
 		if (log.isTraceEnabled()) {
@@ -305,7 +299,7 @@ public class Node {
 	/**
 	 * Console usage.
 	 */
-	public void addToActualStatus(TableList table) {
+	void addToActualStatus(TableList table) {
 		String host = getSocketAddr().getHostString();
 		if (getSocketAddr().getPort() != pool_manager.getProtocol().getDefaultTCPPort()) {
 			host = host + "/" + getSocketAddr().getPort();
@@ -324,7 +318,7 @@ public class Node {
 		table.addRow(host, provider, isopen, deltatime, uuid);
 	}
 	
-	public ActivityScheduledAction<Node> getScheduledAction() {
+	ActivityScheduledAction<Node> getScheduledAction() {
 		Node current_node = this;
 		return new ActivityScheduledAction<Node>() {
 			
@@ -353,14 +347,10 @@ public class Node {
 			public Procedure getRegularScheduledAction() {
 				return () -> {
 					current_node.checkIfOpen();
-					pool_manager.getRequestHandler().getRequestByClass(PokeRequest.class).sendRequest(null, current_node);
+					pool_manager.getRequestHandler().getRequestByClass(RequestPoke.class).sendRequest(null, current_node);
 				};
 			}
 		};
-	}
-	
-	public boolean isOpen() {
-		return channel.isOpen();
 	}
 	
 	public long getLastActivityDate() {
@@ -368,12 +358,12 @@ public class Node {
 	}
 	
 	private void checkIfOpen() throws IOException {
-		if (isOpen() == false) {
+		if (channel.isOpen() == false) {
 			throw new IOException("Channel for " + toString() + " is closed");
 		}
 	}
 	
-	public void asyncRead() {
+	void asyncRead() {
 		read_buffer.clear();
 		try {
 			channel.read(read_buffer, this, pool_manager.getProtocol().getHandlerReader());
@@ -389,7 +379,19 @@ public class Node {
 		
 		read_buffer.clear();
 		write_buffer.clear();
+		
 		if (channel.isOpen()) {
+			try {
+				channel.shutdownInput();
+			} catch (Exception e) {
+				log.debug("Can't shutdown input reader: " + e.getMessage());
+			}
+			try {
+				channel.shutdownOutput();
+			} catch (Exception e) {
+				log.debug("Can't shutdown output reader: " + e.getMessage());
+			}
+			
 			try {
 				channel.close();
 			} catch (ClosedChannelException e) {
@@ -401,9 +403,13 @@ public class Node {
 		pool_manager.remove(this);
 	}
 	
-	private byte[] decrypt() throws GeneralSecurityException {
+	void doProcessReceviedDatas() throws Exception {
+		final long start_time = System.currentTimeMillis();
+		last_activity.set(start_time);
+		
 		read_buffer.flip();
 		byte[] content = new byte[read_buffer.remaining()];
+		
 		if (log.isTraceEnabled()) {
 			log.trace("Prepare " + content.length + " bytes to decrypt");
 		}
@@ -411,42 +417,14 @@ public class Node {
 		read_buffer.get(content, 0, content.length);
 		read_buffer.clear();
 		
-		byte[] result = pool_manager.getProtocol().decrypt(content, 0, content.length);
-		if (log.isTraceEnabled()) {
-			log.trace("Get " + result.length + " bytes decrypted");
-		}
-		
-		return result;
-	}
-	
-	private int encrypt(byte[] data) throws GeneralSecurityException {
-		if (log.isTraceEnabled()) {
-			log.trace("Prepare " + data.length + " bytes to encrypt");
-		}
-		
-		write_buffer.clear();
-		
-		byte[] result = pool_manager.getProtocol().encrypt(data, 0, data.length);
-		
-		write_buffer.put(result);
-		
-		write_buffer.flip();
+		final byte[] datas = pool_manager.getProtocol().decrypt(content, 0, content.length);
 		
 		if (log.isTraceEnabled()) {
-			log.trace("Set " + result.length + " bytes encrypted");
+			log.trace("Get " + datas.length + " bytes decrypted");
 		}
-		
-		return result.length;
-	}
-	
-	public void doProcessReceviedDatas() throws Exception {
-		final long start_time = System.currentTimeMillis();
-		last_activity.set(start_time);
-		
-		final byte[] datas = decrypt();
 		
 		try {
-			RequestBlock block = new RequestBlock(pool_manager.getProtocol(), datas);
+			DataBlock block = new DataBlock(pool_manager.getProtocol(), datas);
 			pool_manager.getRequestHandler().onReceviedNewBlock(block, this);
 			pressure_measurement_recevied.onDatas(datas.length, System.currentTimeMillis() - start_time);
 		} catch (IOException e) {
@@ -466,7 +444,7 @@ public class Node {
 	 * It will add to queue.
 	 * @throws IOException if channel is closed.
 	 */
-	private void sendData(RequestBlock to_send, boolean close_channel_after_send) throws IOException {
+	private void sendData(DataBlock to_send, boolean close_channel_after_send) throws IOException {
 		final long start_time = System.currentTimeMillis();
 		
 		checkIfOpen();
@@ -475,11 +453,26 @@ public class Node {
 			if (log.isTraceEnabled()) {
 				log.trace("Get from " + toString() + " " + to_send.toString());
 			}
-			int size = encrypt(to_send.getBytes(pool_manager.getProtocol()));
+			
+			byte[] data = to_send.getBytes(pool_manager.getProtocol());
+			
+			if (log.isTraceEnabled()) {
+				log.trace("Prepare " + data.length + " bytes to encrypt");
+			}
+			
+			byte[] result = pool_manager.getProtocol().encrypt(data, 0, data.length);
+			
+			write_buffer.clear();
+			write_buffer.put(result);
+			write_buffer.flip();
+			
+			if (log.isTraceEnabled()) {
+				log.trace("Set " + result.length + " bytes encrypted");
+			}
 			
 			channel.write(write_buffer, this, pool_manager.getProtocol().getHandlerWriter(close_channel_after_send));
 			
-			pressure_measurement_sended.onDatas(size, System.currentTimeMillis() - start_time);
+			pressure_measurement_sended.onDatas(result.length, System.currentTimeMillis() - start_time);
 		} catch (Exception e) {
 			log.error("Can't send datas " + toString(), e);
 		}

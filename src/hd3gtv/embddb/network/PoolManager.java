@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 25 nov. 2016
  * 
 */
-package hd3gtv.embddb;
+package hd3gtv.embddb.network;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -43,17 +43,6 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
-import hd3gtv.embddb.dialect.DisconnectRequest;
-import hd3gtv.embddb.dialect.HelloRequest;
-import hd3gtv.embddb.dialect.NodelistRequest;
-import hd3gtv.embddb.dialect.PokeRequest;
-import hd3gtv.embddb.dialect.RequestHandler;
-import hd3gtv.embddb.socket.ConnectionCallback;
-import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.Protocol;
-import hd3gtv.embddb.socket.RequestBlock;
-import hd3gtv.embddb.socket.SocketClient;
-import hd3gtv.embddb.socket.SocketServer;
 import hd3gtv.internaltaskqueue.ActivityScheduledAction;
 import hd3gtv.internaltaskqueue.ActivityScheduler;
 import hd3gtv.internaltaskqueue.Procedure;
@@ -91,6 +80,7 @@ public class PoolManager {
 	
 	private PressureMeasurement pressure_measurement_sended;
 	private PressureMeasurement pressure_measurement_recevied;
+	private List<InetSocketAddress> bootstrap_servers;
 	
 	/**
 	 * synchronizedList
@@ -165,7 +155,7 @@ public class PoolManager {
 		
 		console.addOrder("nl", "Node list", "Display actual connected node", getClass(), param -> {
 			TableList table = new TableList(5);
-			getAllNodes().forEach(node -> {
+			nodes.stream().forEach(node -> {
 				node.addToActualStatus(table);
 			});
 			table.print();
@@ -222,7 +212,7 @@ public class PoolManager {
 				
 				if (node != null) {
 					if (param.startsWith("rm")) {
-						node.sendRequest(DisconnectRequest.class, "Manual via console");
+						node.sendRequest(RequestDisconnect.class, "Manual via console");
 					} else if (param.startsWith("close")) {
 						node.close(getClass());
 						remove(node);
@@ -287,9 +277,9 @@ public class PoolManager {
 		
 		console.addOrder("poke", "Poke servers", "Poke all server, or one if specified", getClass(), param -> {
 			if (param == null) {
-				getAllNodes().forEach(node -> {
+				nodes.stream().forEach(node -> {
 					System.out.println("Poke " + node);
-					node.sendRequest(PokeRequest.class, null);
+					node.sendRequest(RequestPoke.class, null);
 				});
 			} else {
 				InetSocketAddress addr = parseAddressFromCmdConsole(param);
@@ -298,11 +288,11 @@ public class PoolManager {
 					if (node == null) {
 						get(addr.getAddress()).forEach(n -> {
 							System.out.println("Poke " + n);
-							n.sendRequest(PokeRequest.class, null);
+							n.sendRequest(RequestPoke.class, null);
 						});
 					} else {
 						System.out.println("Poke " + node);
-						node.sendRequest(PokeRequest.class, null);
+						node.sendRequest(RequestPoke.class, null);
 					}
 				}
 			}
@@ -332,11 +322,11 @@ public class PoolManager {
 		
 	}
 	
-	public PressureMeasurement getPressureMeasurementSended() {
+	PressureMeasurement getPressureMeasurementSended() {
 		return pressure_measurement_sended;
 	}
 	
-	public PressureMeasurement getPressureMeasurementRecevied() {
+	PressureMeasurement getPressureMeasurementRecevied() {
 		return pressure_measurement_recevied;
 	}
 	
@@ -352,7 +342,7 @@ public class PoolManager {
 		return addr_master;
 	}
 	
-	public ActivityScheduler<Node> getNode_scheduler() {
+	ActivityScheduler<Node> getNode_scheduler() {
 		return node_scheduler;
 	}
 	
@@ -360,15 +350,9 @@ public class PoolManager {
 		return simple_gson;
 	}
 	
-	public ThreadPoolExecutor getExecutorPool() {
-		return executor_pool;
-	}
-	
-	public AsynchronousChannelGroup getChannelGroup() {
+	AsynchronousChannelGroup getChannelGroup() {
 		return channel_group;
 	}
-	
-	private List<InetSocketAddress> bootstrap_servers;
 	
 	public void setBootstrapPotentialNodes(List<InetSocketAddress> servers) {
 		this.bootstrap_servers = servers;
@@ -639,6 +623,10 @@ public class PoolManager {
 		
 		if (log.isDebugEnabled()) {
 			log.debug("Full node list: " + nodes);
+		} else {
+			if (nodes.isEmpty()) {
+				log.info("Now, it's not connected to any nodes");
+			}
 		}
 		
 		node_scheduler.remove(node);
@@ -655,12 +643,14 @@ public class PoolManager {
 		if (nodes.contains(node)) {
 			if (node.isOpenSocket()) {
 				return false;
+			} else {
+				remove(node);
 			}
 		}
 		log.info("Add node " + node);
 		autodiscover_can_be_remake.set(true);
 		nodes.add(node);
-		request_handler.getRequestByClass(HelloRequest.class).sendRequest(null, node);
+		request_handler.getRequestByClass(RequestHello.class).sendRequest(null, node);
 		
 		if (log.isDebugEnabled()) {
 			log.debug("Full node list: " + nodes);
@@ -672,7 +662,7 @@ public class PoolManager {
 	/**
 	 * @return array of objects (Node.getAutodiscoverIDCard())
 	 */
-	public JsonArray makeAutodiscoverList() {
+	JsonArray makeAutodiscoverList() {
 		JsonArray autodiscover_list = new JsonArray();
 		nodes.forEach(n -> {
 			JsonObject jo = n.getAutodiscoverIDCard();
@@ -683,7 +673,7 @@ public class PoolManager {
 		return autodiscover_list;
 	}
 	
-	public ActivityScheduledAction<PoolManager> getScheduledAction() {
+	private ActivityScheduledAction<PoolManager> getScheduledAction() {
 		return new ActivityScheduledAction<PoolManager>() {
 			
 			public String getScheduledActionName() {
@@ -711,7 +701,7 @@ public class PoolManager {
 				return () -> {
 					purgeClosedNodes();
 					if (autodiscover_can_be_remake.compareAndSet(true, false)) {
-						RequestBlock to_send = request_handler.getRequestByClass(NodelistRequest.class).createRequest(null);
+						DataBlock to_send = request_handler.getRequestByClass(RequestNodelist.class).createRequest(null);
 						if (to_send != null) {
 							nodes.forEach(n -> {
 								n.sendBlock(to_send, false);
@@ -724,7 +714,7 @@ public class PoolManager {
 	}
 	
 	public void sayToAllNodesToDisconnectMe(boolean blocking) {
-		RequestBlock to_send = request_handler.getRequestByClass(DisconnectRequest.class).createRequest("All nodes instance shutdown");
+		DataBlock to_send = request_handler.getRequestByClass(RequestDisconnect.class).createRequest("All nodes instance shutdown");
 		nodes.forEach(n -> {
 			n.sendBlock(to_send, true);
 		});
@@ -737,10 +727,6 @@ public class PoolManager {
 			} catch (InterruptedException e1) {
 			}
 		}
-	}
-	
-	public Stream<Node> getAllNodes() {
-		return nodes.stream();
 	}
 	
 }

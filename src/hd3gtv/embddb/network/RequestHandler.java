@@ -14,16 +14,12 @@
  * Copyright (C) hdsdi3g for hd3g.tv 21 nov. 2016
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.network;
 
 import java.util.HashMap;
 import java.util.Optional;
 
 import org.apache.log4j.Logger;
-
-import hd3gtv.embddb.PoolManager;
-import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.RequestBlock;
 
 public class RequestHandler {
 	
@@ -38,11 +34,11 @@ public class RequestHandler {
 		}
 		requests = new HashMap<>();
 		
-		addRequest(new ErrorRequest(this));
-		addRequest(new HelloRequest(this));
-		addRequest(new DisconnectRequest(this));
-		addRequest(new NodelistRequest(this));
-		addRequest(new PokeRequest(this));
+		addRequest(new RequestError(this));
+		addRequest(new RequestHello(this));
+		addRequest(new RequestDisconnect(this));
+		addRequest(new RequestNodelist(this));
+		addRequest(new RequestPoke(this));
 	}
 	
 	public PoolManager getPoolManager() {
@@ -85,7 +81,7 @@ public class RequestHandler {
 		return null;
 	}
 	
-	public void onReceviedNewBlock(RequestBlock block, Node node) throws WantToCloseLinkException {
+	public void onReceviedNewBlock(DataBlock block, Node node) throws WantToCloseLinkException {
 		if (log.isTraceEnabled()) {
 			log.trace("Get " + block.toString() + " from " + node);
 		}

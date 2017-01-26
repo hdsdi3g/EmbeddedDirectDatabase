@@ -14,11 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 7 janv. 2017
  * 
 */
-package hd3gtv.embddb.dialect;
-
-import hd3gtv.embddb.PoolManager;
-import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.RequestBlock;
+package hd3gtv.embddb.network;
 
 /**
  * @param T Send T to dest_node
@@ -44,15 +40,15 @@ public abstract class Request<T> {
 	 */
 	public abstract String getHandleName();
 	
-	public abstract void onRequest(RequestBlock block, Node source_node);
+	public abstract void onRequest(DataBlock block, Node source_node);
 	
 	/**
 	 * @return first RequestBlock.name must equals to getHandleName()
 	 */
-	public abstract RequestBlock createRequest(T options);
+	public abstract DataBlock createRequest(T options);
 	
 	public final void sendRequest(T options, Node dest_node) throws NullPointerException, IndexOutOfBoundsException {
-		RequestBlock block = createRequest(options);
+		DataBlock block = createRequest(options);
 		if (block == null) {
 			throw new NullPointerException("No blocks to send");
 		}

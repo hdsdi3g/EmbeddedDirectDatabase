@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 21 nov. 2016
  * 
 */
-package hd3gtv.embddb.socket;
+package hd3gtv.embddb.network;
 
 import java.io.UnsupportedEncodingException;
 import java.nio.channels.AsynchronousCloseException;
@@ -117,9 +117,10 @@ public final class Protocol {
 	class SocketHandlerReader implements CompletionHandler<Integer, Node> {
 		
 		public void completed(Integer size, Node node) {
-			if (size < 1) {
-				log.debug("Get empty datas from " + node.toString());
-				// bucket.close(getClass());
+			if (size == -1) {
+				return;
+			} else if (size < 1) {
+				log.debug("Get empty datas from " + node.toString() + ", size = " + size);
 				return;
 			}
 			
@@ -160,6 +161,9 @@ public final class Protocol {
 		}
 		
 		public void completed(Integer size, Node node) {
+			if (size == -1) {
+				return;
+			}
 			showLogs(size, node);
 		}
 		

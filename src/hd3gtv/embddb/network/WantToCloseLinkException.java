@@ -11,13 +11,16 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 2017
+ * Copyright (C) hdsdi3g for hd3g.tv 21 nov. 2016
  * 
 */
-package hd3gtv.embddb.socket;
+package hd3gtv.embddb.network;
 
-public interface SocketProvider {
+import java.io.IOException;
+
+public class WantToCloseLinkException extends IOException {
 	
-	public String getTypeName();
+	public WantToCloseLinkException() {
+	}
 	
 }

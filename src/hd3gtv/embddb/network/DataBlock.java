@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 21 nov. 2016
  * 
 */
-package hd3gtv.embddb.socket;
+package hd3gtv.embddb.network;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -30,13 +30,14 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
 
 import hd3gtv.tools.Hexview;
 
-public final class RequestBlock {
+public final class DataBlock {
 	
-	private static final Logger log = Logger.getLogger(RequestBlock.class);
+	private static final Logger log = Logger.getLogger(DataBlock.class);
 	
 	private ArrayList<RequestEntry> entries;
 	private String request_name;
@@ -44,7 +45,7 @@ public final class RequestBlock {
 	/**
 	 * Create mode
 	 */
-	public RequestBlock(String request_name) {
+	public DataBlock(String request_name) {
 		entries = new ArrayList<>();
 		this.request_name = request_name;
 		if (request_name == null) {
@@ -55,7 +56,7 @@ public final class RequestBlock {
 	/**
 	 * Import mode
 	 */
-	RequestBlock(Protocol protocol, byte[] request_raw_datas) throws IOException {
+	DataBlock(Protocol protocol, byte[] request_raw_datas) throws IOException {
 		if (log.isTraceEnabled()) {
 			log.trace("Get raw datas" + Hexview.LINESEPARATOR + Hexview.tracelog(request_raw_datas));
 		}
@@ -162,12 +163,12 @@ public final class RequestBlock {
 		return result;
 	}
 	
-	public synchronized RequestBlock createEntry(String name, byte[] datas) {
+	public synchronized DataBlock createEntry(String name, byte[] datas) {
 		entries.add(new RequestEntry(name, datas, System.currentTimeMillis()));
 		return this;
 	}
 	
-	public synchronized RequestBlock createEntry(String name, String datas) {
+	public synchronized DataBlock createEntry(String name, String datas) {
 		entries.add(new RequestEntry(name, datas.getBytes(Protocol.UTF8), System.currentTimeMillis()));
 		
 		if (log.isTraceEnabled()) {
@@ -217,4 +218,75 @@ public final class RequestBlock {
 			return request_name + " (" + all_size.get() + " bytes in " + entries.size() + " items)";
 		}
 	}
+	
+	public class RequestEntry {
+		
+		private String name;
+		private byte[] datas;
+		private long date;
+		private int len;
+		
+		private RequestEntry(String name, byte[] datas, long date) {
+			this.name = name;
+			if (name == null) {
+				throw new NullPointerException("\"name\" can't to be null");
+			}
+			this.datas = datas;
+			if (datas == null) {
+				throw new NullPointerException("\"datas\" can't to be null");
+			}
+			this.date = date;
+			len = datas.length;
+		}
+		
+		private RequestEntry(ZipEntry entry, ZipInputStream zipdatas) throws IOException {
+			ByteArrayOutputStream bias = new ByteArrayOutputStream(Protocol.BUFFER_SIZE);
+			IOUtils.copy(zipdatas, bias);
+			
+			datas = bias.toByteArray();
+			len = datas.length;
+			date = entry.getTime();
+			name = entry.getName();
+			
+			if (log.isTraceEnabled()) {
+				log.trace("Get datas from zip: \"" + name + "\"" + Hexview.LINESEPARATOR + Hexview.tracelog(datas, 0, len));
+			}
+		}
+		
+		public byte[] getDatas() {
+			return datas;
+		}
+		
+		public long getDate() {
+			return date;
+		}
+		
+		public int getLen() {
+			return len;
+		}
+		
+		public String getName() {
+			return name;
+		}
+		
+		public String getDatasAsString() {
+			return new String(datas, 0, len, Protocol.UTF8);
+		}
+		
+		private void toZip(ZipOutputStream zipdatas) throws IOException {
+			if (log.isTraceEnabled()) {
+				log.trace("Add entry to Zip: \"" + name + "\"" + Hexview.LINESEPARATOR + Hexview.tracelog(datas, 0, len));
+			}
+			
+			ZipEntry entry = new ZipEntry(name);
+			entry.setTime(date);
+			// entry.setSize(len);
+			zipdatas.putNextEntry(entry);
+			zipdatas.write(datas, 0, len);
+			zipdatas.flush();
+			zipdatas.closeEntry();
+		}
+		
+	}
+	
 }

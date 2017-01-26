@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 8 janv. 2017
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.network;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -31,18 +31,15 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
-import hd3gtv.embddb.socket.ConnectionCallback;
-import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.RequestBlock;
 import hd3gtv.tools.AddressMaster;
 
-public class NodelistRequest extends Request<Void> {
+public class RequestNodelist extends Request<Void> {
 	
-	private static Logger log = Logger.getLogger(NodelistRequest.class);
+	private static Logger log = Logger.getLogger(RequestNodelist.class);
 	
 	private final AddressMaster address_master;
 	
-	public NodelistRequest(RequestHandler request_handler) {
+	public RequestNodelist(RequestHandler request_handler) {
 		super(request_handler);
 		address_master = pool_manager.getAddressMaster();
 	}
@@ -53,7 +50,7 @@ public class NodelistRequest extends Request<Void> {
 	
 	private static final JsonParser parser = new JsonParser();
 	
-	public void onRequest(RequestBlock block, Node source_node) {
+	public void onRequest(DataBlock block, Node source_node) {
 		try {
 			Predicate<InetAddress> non_local_address_filter = addr -> {
 				return AddressMaster.isLocalAddress(addr) == false;
@@ -233,8 +230,8 @@ public class NodelistRequest extends Request<Void> {
 		}
 	}
 	
-	public RequestBlock createRequest(Void opt) {
-		return new RequestBlock(getHandleName()).createEntry("json", pool_manager.makeAutodiscoverList().toString());
+	public DataBlock createRequest(Void opt) {
+		return new DataBlock(getHandleName()).createEntry("json", pool_manager.makeAutodiscoverList().toString());
 	}
 	
 	protected boolean isCloseChannelRequest(Void options) {

@@ -14,20 +14,17 @@
  * Copyright (C) hdsdi3g for hd3g.tv 8 janv. 2017
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.network;
 
 import java.io.IOException;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.RequestBlock;
-
-public class DisconnectRequest extends Request<String> {
+public class RequestDisconnect extends Request<String> {
 	
-	private static Logger log = Logger.getLogger(DisconnectRequest.class);
+	private static Logger log = Logger.getLogger(RequestDisconnect.class);
 	
-	DisconnectRequest(RequestHandler request_handler) {
+	RequestDisconnect(RequestHandler request_handler) {
 		super(request_handler);
 	}
 	
@@ -35,7 +32,7 @@ public class DisconnectRequest extends Request<String> {
 		return "disconnectme";
 	}
 	
-	public void onRequest(RequestBlock block, Node node) {
+	public void onRequest(DataBlock block, Node node) {
 		try {
 			log.info("Distant node " + node + " ask to to close because it say \"" + block.getByName("reason").getDatasAsString() + "\"");
 		} catch (IOException e) {
@@ -44,8 +41,8 @@ public class DisconnectRequest extends Request<String> {
 		node.close(getClass());
 	}
 	
-	public RequestBlock createRequest(String options) {
-		return new RequestBlock(getHandleName()).createEntry("reason", options);
+	public DataBlock createRequest(String options) {
+		return new DataBlock(getHandleName()).createEntry("reason", options);
 	}
 	
 	protected boolean isCloseChannelRequest(String options) {

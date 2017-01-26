@@ -14,21 +14,18 @@
  * Copyright (C) hdsdi3g for hd3g.tv 8 janv. 2017
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.network;
 
 import java.io.IOException;
 import java.util.UUID;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.RequestBlock;
-
-public class PokeRequest extends Request<Void> {
+public class RequestPoke extends Request<Void> {
 	
-	private static Logger log = Logger.getLogger(PokeRequest.class);
+	private static Logger log = Logger.getLogger(RequestPoke.class);
 	
-	public PokeRequest(RequestHandler request_handler) {
+	public RequestPoke(RequestHandler request_handler) {
 		super(request_handler);
 	}
 	
@@ -36,7 +33,7 @@ public class PokeRequest extends Request<Void> {
 		return "poke";
 	}
 	
-	public void onRequest(RequestBlock block, Node source_node) {
+	public void onRequest(DataBlock block, Node source_node) {
 		try {
 			long node_date = Long.valueOf(block.getByName("now").getDatasAsString());
 			UUID current_uuid = UUID.fromString(block.getByName("uuid").getDatasAsString());
@@ -49,8 +46,8 @@ public class PokeRequest extends Request<Void> {
 		}
 	}
 	
-	public RequestBlock createRequest(Void options) {
-		return new RequestBlock(getHandleName()).createEntry("now", String.valueOf(System.currentTimeMillis())).createEntry("uuid", pool_manager.getUUIDRef().toString());
+	public DataBlock createRequest(Void options) {
+		return new DataBlock(getHandleName()).createEntry("now", String.valueOf(System.currentTimeMillis())).createEntry("uuid", pool_manager.getUUIDRef().toString());
 	}
 	
 	protected boolean isCloseChannelRequest(ErrorReturn options) {

@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 6 janv. 2017
  * 
 */
-package hd3gtv.embddb.socket;
+package hd3gtv.embddb.network;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -23,8 +23,6 @@ import java.nio.channels.CompletionHandler;
 import java.util.function.Consumer;
 
 import org.apache.log4j.Logger;
-
-import hd3gtv.embddb.PoolManager;
 
 public class SocketClient implements SocketProvider {
 	
@@ -83,6 +81,6 @@ public class SocketClient implements SocketProvider {
 	}
 	
 	public String getTypeName() {
-		return "LClient>DServer";
+		return "Lclient>Dserver";
 	}
 }

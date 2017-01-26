@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 8 janv. 2017
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.network;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -22,15 +22,11 @@ import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.PoolManager;
-import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.RequestBlock;
-
-public class HelloRequest extends Request<Void> {
+public class RequestHello extends Request<Void> {
 	
-	private static Logger log = Logger.getLogger(HelloRequest.class);
+	private static Logger log = Logger.getLogger(RequestHello.class);
 	
-	public HelloRequest(RequestHandler request_handler) {
+	public RequestHello(RequestHandler request_handler) {
 		super(request_handler);
 	}
 	
@@ -38,7 +34,7 @@ public class HelloRequest extends Request<Void> {
 		return "hello";
 	}
 	
-	public void onRequest(RequestBlock block, Node source_node) {
+	public void onRequest(DataBlock block, Node source_node) {
 		try {
 			source_node.setDistantDate(Long.valueOf(block.getByName("now").getDatasAsString()));
 			source_node.setUUIDRef(UUID.fromString(block.getByName("uuid").getDatasAsString()));
@@ -51,8 +47,8 @@ public class HelloRequest extends Request<Void> {
 		}
 	}
 	
-	public RequestBlock createRequest(Void options) {
-		RequestBlock b = new RequestBlock(getHandleName());
+	public DataBlock createRequest(Void options) {
+		DataBlock b = new DataBlock(getHandleName());
 		b.createEntry("now", String.valueOf(System.currentTimeMillis()));
 		b.createEntry("uuid", pool_manager.getUUIDRef().toString());
 		b.createEntry("listen_on", pool_manager.getSimpleGson().toJson(pool_manager.getListenedServerAddress().collect(Collectors.toList())));

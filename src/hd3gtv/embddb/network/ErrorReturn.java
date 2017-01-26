@@ -14,12 +14,9 @@
  * Copyright (C) hdsdi3g for hd3g.tv 8 janv. 2017
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.network;
 
 import java.net.InetSocketAddress;
-
-import hd3gtv.embddb.PoolManager;
-import hd3gtv.embddb.socket.Node;
 
 public class ErrorReturn {
 	

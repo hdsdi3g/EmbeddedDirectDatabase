@@ -14,7 +14,7 @@
  * Copyright (C) hdsdi3g for hd3g.tv 5 janv. 2017
  * 
 */
-package hd3gtv.embddb.socket;
+package hd3gtv.embddb.network;
 
 import java.io.IOException;
 import java.net.BindException;
@@ -26,7 +26,6 @@ import java.nio.channels.ClosedChannelException;
 
 import org.apache.log4j.Logger;
 
-import hd3gtv.embddb.PoolManager;
 import hd3gtv.tools.StoppableThread;
 
 public class SocketServer extends StoppableThread implements SocketProvider {
@@ -134,7 +133,7 @@ public class SocketServer extends StoppableThread implements SocketProvider {
 	}
 	
 	public String getTypeName() {
-		return "DClient>LServer";
+		return "Dclient>Lserver";
 	}
 	
 }

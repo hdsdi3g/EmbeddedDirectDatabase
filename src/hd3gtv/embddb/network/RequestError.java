@@ -14,18 +14,15 @@
  * Copyright (C) hdsdi3g for hd3g.tv 8 janv. 2017
  * 
 */
-package hd3gtv.embddb.dialect;
+package hd3gtv.embddb.network;
 
 import java.io.IOException;
 
 import org.jfree.util.Log;
 
-import hd3gtv.embddb.socket.Node;
-import hd3gtv.embddb.socket.RequestBlock;
-
-public class ErrorRequest extends Request<ErrorReturn> {
+public class RequestError extends Request<ErrorReturn> {
 	
-	public ErrorRequest(RequestHandler request_handler) {
+	public RequestError(RequestHandler request_handler) {
 		super(request_handler);
 	}
 	
@@ -33,7 +30,7 @@ public class ErrorRequest extends Request<ErrorReturn> {
 		return "error";
 	}
 	
-	public void onRequest(RequestBlock blocks, Node source_node) {
+	public void onRequest(DataBlock blocks, Node source_node) {
 		try {
 			ErrorReturn error = ErrorReturn.fromJsonString(pool_manager, blocks.getByName("message").getDatasAsString());
 			source_node.onErrorReturnFromNode(error);
@@ -42,12 +39,12 @@ public class ErrorRequest extends Request<ErrorReturn> {
 		}
 	}
 	
-	public RequestBlock createRequest(ErrorReturn options) {
-		return new RequestBlock(getHandleName()).createEntry("message", ErrorReturn.toJsonString(pool_manager, options));
+	public DataBlock createRequest(ErrorReturn options) {
+		return new DataBlock(getHandleName()).createEntry("message", ErrorReturn.toJsonString(pool_manager, options));
 	}
 	
 	public void directSendError(Node node, String message, Class<?> caller, boolean disconnectme) {
-		ErrorRequest er = request_handler.getRequestByClass(ErrorRequest.class);
+		RequestError er = request_handler.getRequestByClass(RequestError.class);
 		ErrorReturn error = new ErrorReturn(node, message, caller, disconnectme);
 		er.sendRequest(error, node);
 	}
