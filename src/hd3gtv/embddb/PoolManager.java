@@ -37,6 +37,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import hd3gtv.embddb.dialect.DisconnectRequest;
+import hd3gtv.embddb.dialect.PokeRequest;
 import hd3gtv.embddb.dialect.RequestHandler;
 import hd3gtv.embddb.socket.ConnectionCallback;
 import hd3gtv.embddb.socket.Node;
@@ -266,6 +267,29 @@ public class PoolManager {
 			});
 		});
 		
+		console.addOrder("poke", "Poke servers", "Poke all server, or one if specified", getClass(), param -> {
+			if (param == null) {
+				node_list.getAllNodes().forEach(node -> {
+					System.out.println("Poke " + node);
+					node.sendRequest(PokeRequest.class, null);
+				});
+			} else {
+				InetSocketAddress addr = parseAddressFromCmdConsole(param);
+				if (addr != null) {
+					Node node = node_list.get(addr);
+					if (node == null) {
+						node_list.get(addr.getAddress()).forEach(n -> {
+							System.out.println("Poke " + n);
+							n.sendRequest(PokeRequest.class, null);
+						});
+					} else {
+						System.out.println("Poke " + node);
+						node.sendRequest(PokeRequest.class, null);
+					}
+				}
+			}
+		});
+		
 		console.addOrder("ip", "IP properties", "Show actual network properties", getClass(), param -> {
 			TableList table = new TableList(7);
 			addr_master.dump(table);
@@ -277,7 +301,6 @@ public class PoolManager {
 			PressureMeasurement.toTableHeader(list);
 			pressure_measurement_recevied.getActualStats(false).toTable(list, "Recevied");
 			pressure_measurement_sended.getActualStats(false).toTable(list, "Sended");
-			// queue.getPressureMeasurement().getActualStats(false).toTable(list, "Queue");
 			list.print();
 		});
 		
@@ -286,7 +309,6 @@ public class PoolManager {
 			PressureMeasurement.toTableHeader(list);
 			pressure_measurement_recevied.getActualStats(true).toTable(list, "Recevied");
 			pressure_measurement_sended.getActualStats(true).toTable(list, "Sended");
-			// queue.getPressureMeasurement().getActualStats(true).toTable(list, "Queue");
 			list.print();
 		});
 		

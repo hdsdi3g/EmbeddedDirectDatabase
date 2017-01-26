@@ -132,7 +132,9 @@ public final class Protocol {
 				failed(e, bucket);
 			}
 			
-			bucket.asyncRead();
+			if (bucket.isOpen()) {
+				bucket.asyncRead();
+			}
 		}
 		
 		public void failed(Throwable e, ChannelBucket bucket) {

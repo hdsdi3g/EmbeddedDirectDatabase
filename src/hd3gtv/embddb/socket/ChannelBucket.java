@@ -19,6 +19,7 @@ package hd3gtv.embddb.socket;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.AsynchronousCloseException;
 import java.nio.channels.AsynchronousSocketChannel;
 import java.nio.channels.ReadPendingException;
 import java.security.GeneralSecurityException;
@@ -124,6 +125,8 @@ class ChannelBucket {
 		if (channel.isOpen()) {
 			try {
 				channel.close();
+			} catch (AsynchronousCloseException e) {
+				log.debug("Node was closed: " + e.getMessage());
 			} catch (IOException e) {
 				log.warn("Can't close properly channel " + toString(), e);
 			}
@@ -169,9 +172,6 @@ class ChannelBucket {
 		return result.length;
 	}
 	
-	/**
-	 * It will add to queue
-	 */
 	void doProcessReceviedDatas() throws Exception {
 		final long start_time = System.currentTimeMillis();
 		last_activity.set(start_time);
