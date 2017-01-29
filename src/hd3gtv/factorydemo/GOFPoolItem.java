@@ -51,7 +51,7 @@ class GOFPoolItem<T> {
 	}
 	
 	GOFPoolItem<T> makeObject() throws InstantiationException, IllegalAccessException {
-		object = origin_class.newInstance();// XXX with definition
+		// object = origin_class.newInstance();// XXX with definition
 		return this;
 	}
 	

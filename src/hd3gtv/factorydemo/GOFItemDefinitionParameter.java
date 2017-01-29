@@ -19,11 +19,15 @@ package hd3gtv.factorydemo;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Map;
 
-import hd3gtv.factorydemo.annotations.DefaultGOF;
-import hd3gtv.factorydemo.annotations.ListOfGOF;
-import hd3gtv.factorydemo.annotations.NameGOF;
+import hd3gtv.factorydemo.annotations.ParameterGOF;
+import hd3gtv.factorydemo.annotations.ParameterListGOF;
+import hd3gtv.factorydemo.annotations.ParameterMapGOF;
 
+/**
+ * Class parameter definition, import @ParameterGOF, @ParameterListGOF and @ParameterMapGOF setup values.
+ */
 class GOFItemDefinitionParameter {
 	
 	static ArrayList<GOFItemDefinitionParameter> importFromList(Parameter[] raw_list, String source) throws IllegalAccessException {
@@ -39,7 +43,7 @@ class GOFItemDefinitionParameter {
 	private Class<?> type;
 	private String name;
 	private String default_value;
-	private Class<?> list_type;
+	private Class<?> generic_type;
 	
 	private GOFItemDefinitionParameter(Parameter parameter, int pos, String source) throws IllegalAccessException {
 		if (parameter == null) {
@@ -47,28 +51,42 @@ class GOFItemDefinitionParameter {
 		}
 		type = parameter.getType();
 		
-		NameGOF a_name = parameter.getAnnotation(NameGOF.class);
+		ParameterGOF a_name = parameter.getAnnotation(ParameterGOF.class);
 		if (a_name == null) {
 			name = String.valueOf(pos);
+			default_value = "";
 		} else {
 			name = a_name.value();
+			default_value = a_name.default_value();
 		}
 		
-		DefaultGOF a_default = parameter.getAnnotation(DefaultGOF.class);
-		if (a_default != null) {
-			default_value = a_default.value();
+		if (default_value != null) {
+			if (default_value.equals("")) {
+				default_value = null;
+			}
 		}
 		
-		ListOfGOF a_listof = parameter.getAnnotation(ListOfGOF.class);
+		ParameterListGOF a_listof = parameter.getAnnotation(ParameterListGOF.class);
 		if (Collection.class.isAssignableFrom(type)) {
 			if (a_listof == null) {
-				throw new IllegalAccessException("An annotation @ListOfGOF is missing for param " + name + " [" + type.getName() + "] on " + source);
+				throw new IllegalAccessException("An annotation @ParameterListGOF is missing for param " + name + " [" + type.getName() + "] on " + source);
 			}
-			list_type = a_listof.value();
+			name = a_listof.value();
+			generic_type = a_listof.generic_type();
 		} else if (a_listof != null) {
-			throw new IllegalAccessException("An annotation @ListOfGOF is set for param " + name + " [" + type.getName() + "] on " + source + " but it's not a List");
+			throw new IllegalAccessException("An annotation @ParameterListGOF is set for param " + name + " [" + type.getName() + "] on " + source + " but it's not a Collection");
 		}
 		
+		ParameterMapGOF a_mapof = parameter.getAnnotation(ParameterMapGOF.class);
+		if (Map.class.isAssignableFrom(type)) {
+			if (a_mapof == null) {
+				throw new IllegalAccessException("An annotation @ParameterMapGOF is missing for param " + name + " [" + type.getName() + "] on " + source);
+			}
+			name = a_mapof.value();
+			generic_type = a_mapof.generic_type();
+		} else if (a_mapof != null) {
+			throw new IllegalAccessException("An annotation @ParameterMapGOF is set for param " + name + " [" + type.getName() + "] on " + source + " but it's not a Map");
+		}
 	}
 	
 	public Class<?> getType() {
@@ -85,8 +103,8 @@ class GOFItemDefinitionParameter {
 	/**
 	 * @return maybe null
 	 */
-	public Class<?> getListType() {
-		return list_type;
+	public Class<?> getGeneric_type() {
+		return generic_type;
 	}
 	
 	/**
@@ -98,21 +116,20 @@ class GOFItemDefinitionParameter {
 	
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("type: ");
-		sb.append(type.getName());
+		sb.append(type.getSimpleName());
+		if (generic_type != null) {
+			sb.append("<");
+			sb.append(generic_type.getSimpleName());
+			sb.append(">");
+		}
 		
 		if (name != null) {
-			sb.append(", name: ");
+			sb.append(" ");
 			sb.append(name);
 		}
 		
-		if (list_type != null) {
-			sb.append(", list_type: ");
-			sb.append(list_type.getName());
-		}
-		
 		if (default_value != null) {
-			sb.append(", default_value: ");
+			sb.append(" = ");
 			sb.append(default_value);
 		}
 		

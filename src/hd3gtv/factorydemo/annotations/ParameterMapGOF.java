@@ -22,7 +22,17 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ ElementType.CONSTRUCTOR })
-public @interface PreferedConstructorGOF {
+@Target({ ElementType.PARAMETER })
+public @interface ParameterMapGOF {
+	
+	/**
+	 * Function parameter name
+	 */
+	public String value();
+	
+	/**
+	 * Map type <String, *generic_type*>
+	 */
+	public Class<?> generic_type();
 	
 }

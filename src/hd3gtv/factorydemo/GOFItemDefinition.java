@@ -24,16 +24,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import hd3gtv.factorydemo.annotations.PreferedConstructorGOF;
+import hd3gtv.factorydemo.annotations.ConstructorGOF;
 
 /**
- * An analyst of class parameters.
+ * Class configuration, with
+ * - constructor and it's parameters: import @ConstructorGOF.
  */
 class GOFItemDefinition {
 	
 	private Class<?> origin_class;
-	
-	private Category category;
 	
 	enum Category {
 		Interface, Primitive, Array, Enum, Abstract, Native, Static, NonPublic, Public;
@@ -60,6 +59,7 @@ class GOFItemDefinition {
 		}
 	}
 	
+	private String constructor_name;
 	private Constructor<?> constructor;
 	private ArrayList<GOFItemDefinitionParameter> constructor_parameters;
 	
@@ -68,7 +68,7 @@ class GOFItemDefinition {
 		if (origin_class == null) {
 			throw new NullPointerException("\"origin_class\" can't to be null");
 		}
-		category = Category.getCategory(origin_class);
+		Category category = Category.getCategory(origin_class);
 		if (category != Category.Public) {
 			throw new IllegalAccessException("Can't use class " + origin_class + " because it's " + category);
 		}
@@ -76,9 +76,23 @@ class GOFItemDefinition {
 		/**
 		 * Get constructor without params
 		 */
-		List<Constructor<?>> potential_constructors = getPotentialConstructors();
+		List<Constructor<?>> constructors = Arrays.asList(origin_class.getDeclaredConstructors());
+		List<Constructor<?>> potential_valid_constructors = constructors.stream().filter(constructor -> {
+			if (constructor.isVarArgs()) {
+				return false;
+			} else if (Modifier.isPublic(constructor.getModifiers()) == false) {
+				return false;
+			}
+			return true;
+		}).collect(Collectors.toList());
+		if (potential_valid_constructors.isEmpty()) {
+			throw new IllegalAccessException("Can't found valid constructor for this class: " + origin_class.getName());
+		}
 		
-		Optional<Constructor<?>> opt_constructor = potential_constructors.stream().filter(c -> {
+		/**
+		 * For each founded and valid constructor...
+		 */
+		Optional<Constructor<?>> opt_constructor = potential_valid_constructors.stream().filter(c -> {
 			return c.getParameterCount() == 0;
 		}).findFirst();
 		if (opt_constructor.isPresent()) {
@@ -88,19 +102,25 @@ class GOFItemDefinition {
 			/**
 			 * Get constructor with params
 			 */
-			opt_constructor = potential_constructors.stream().filter(c -> {
+			opt_constructor = potential_valid_constructors.stream().filter(c -> {
 				/**
-				 * Get the first with @PreferedConstructorGOF
+				 * Get the first with @ConstructorGOF
 				 */
-				return c.getAnnotation(PreferedConstructorGOF.class) != null;
+				return c.getAnnotation(ConstructorGOF.class) != null;
 			}).findFirst();
+			
 			if (opt_constructor.isPresent()) {
 				constructor = opt_constructor.get();
+				
+				constructor_name = constructor.getAnnotation(ConstructorGOF.class).value();
+				if (constructor_name.equals("")) {
+					constructor_name = null;
+				}
 			} else {
 				/**
-				 * Get the first
+				 * Get the first & simple
 				 */
-				constructor = potential_constructors.get(0);
+				constructor = potential_valid_constructors.get(0);
 			}
 			
 			constructor_parameters = GOFItemDefinitionParameter.importFromList(constructor.getParameters(), origin_class.getName() + "() first valid constructor");
@@ -110,50 +130,35 @@ class GOFItemDefinition {
 		// TODO get terminate actions (with params)
 		// TODO get update actions (with params)
 		
-		// TODO get root conf key
 		// TODO get default value(s)
 	}
 	
-	private List<Constructor<?>> getPotentialConstructors() throws IllegalAccessException {
-		List<Constructor<?>> constructors = Arrays.asList(origin_class.getDeclaredConstructors());
-		
-		List<Constructor<?>> potential_valid_constructors = constructors.stream().filter(constructor -> {
-			if (constructor.isVarArgs()) {
-				return false;
-			} else if (Modifier.isPublic(constructor.getModifiers()) == false) {
-				return false;
-			}
-			return true;
-		}).collect(Collectors.toList());
-		
-		if (potential_valid_constructors.isEmpty()) {
-			throw new IllegalAccessException("Can't found valid constructor for this class: " + origin_class.getName());
-		}
-		
-		return potential_valid_constructors;
+	/**
+	 * @return maybe null
+	 */
+	public String getConstructor_name() {
+		return constructor_name;
 	}
 	
 	public String toString() {
 		StringBuilder sb = new StringBuilder();
-		sb.append("origin_class: ");
-		sb.append(origin_class.getName());
+		sb.append(origin_class.getSimpleName());
 		
 		if (constructor_parameters.isEmpty() == false) {
-			sb.append(", constructor_parameters: ");
+			sb.append("(");
 			sb.append(constructor_parameters.stream().map(p -> {
 				return p.toString();
-			}).collect(() -> {
-				return new StringBuilder();
-			}, (sbc, p) -> {
-				sbc.append("(");
-				sbc.append(p);
-				sbc.append(")");
-			}, (sbc, sbc2) -> {
-				sbc.append(sbc2.toString());
-			}).toString());
+			}).collect(Collectors.joining(", ")));
+			sb.append(");");
 		} else {
 			sb.append(" with default and empty constructor");
 		}
+		
+		if (constructor_name != null) {
+			sb.append(", name: ");
+			sb.append(constructor_name);
+		}
+		
 		return sb.toString();
 	}
 	

@@ -11,19 +11,17 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU Lesser General Public License for more details.
  * 
- * Copyright (C) hdsdi3g for hd3g.tv 10 déc. 2016
+ * Copyright (C) hdsdi3g for hd3g.tv 29 janv. 2017
  * 
 */
-package hd3gtv.factorydemo.other;
+package hd3gtv.factorydemo.conftree;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ ElementType.PARAMETER })
-@Deprecated
-public @interface ConfFactParam {
-	public String value();
+public interface ConfigurationWalker {
+	
+	public void onStringEntry(GOFConfigurationString value);
+	
+	public void onMapEntry(String key, GOFConfigurationItem value);
+	
+	public void onListEntry(GOFConfigurationItem value);
+	
 }

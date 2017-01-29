@@ -17,7 +17,9 @@
 package hd3gtv.factorydemo;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Optional;
 
 import org.apache.log4j.Logger;
@@ -26,11 +28,14 @@ public class GlobalObjectFactory {
 	
 	private static Logger log = Logger.getLogger(GlobalObjectFactory.class);
 	
-	private ArrayList<GOFPoolItem<?>> created_objects;
+	/**
+	 * SynchronizedList
+	 */
+	private List<GOFPoolItem<?>> created_objects;
 	private HashMap<Class<?>, GOFItemDefinition> definitions;
 	
 	public GlobalObjectFactory() {
-		created_objects = new ArrayList<>();
+		created_objects = Collections.synchronizedList(new ArrayList<>());
 		definitions = new HashMap<>();
 	}
 	
@@ -41,11 +46,9 @@ public class GlobalObjectFactory {
 		try {
 			GOFPoolItem<T> pool_item = new GOFPoolItem<>(this, class_ref);
 			
-			synchronized (created_objects) {
-				T result = pool_item.makeObject().getCreatedObject();
-				created_objects.add(pool_item);
-				return result;
-			}
+			T result = pool_item.makeObject().getCreatedObject();
+			created_objects.add(pool_item);
+			return result;
 		} catch (Exception e) {
 			log.error("Can't create Object from " + class_ref, e);
 			return null;
