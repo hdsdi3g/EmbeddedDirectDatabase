@@ -17,18 +17,50 @@
 package hd3gtv.factorydemo.conftree;
 
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Properties;
+import java.util.stream.Collectors;
 
 import org.apache.commons.lang.StringUtils;
+import org.apache.log4j.Logger;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 public final class GOFConfiguration {
 	
+	private static Logger log = Logger.getLogger(GOFConfiguration.class);
+	
 	private GOFConfigurationMap root;
+	private final Gson gson;
+	// private final Gson gson_simple;
 	
 	public GOFConfiguration() {
 		root = new GOFConfigurationMap();
+		
+		GsonBuilder builder = new GsonBuilder();
+		builder.setPrettyPrinting();
+		// gson_simple = builder.create();
+		
+		builder.registerTypeAdapter(GOFConfigurationMap.class, new GOFConfigurationMap.MapSerializer(this));
+		builder.registerTypeAdapter(GOFConfigurationList.class, new GOFConfigurationList.ListSerializer(this));
+		builder.registerTypeAdapter(GOFConfigurationString.class, new GOFConfigurationString.StringSerializer());
+		gson = builder.create();
+		
 		// TODO import from file config
 		// TODO create onChange callback caller
-		
+	}
+	
+	Gson getGson() {
+		return gson;
+	}
+	
+	public void getConfigurationInYAML(PrintStream print) {
+		EntriesWalkerYAML dw = new EntriesWalkerYAML(print);
+		root.deepWalk(dw);
+	}
+	
+	public void createDummyValues() {
 		root.put("test1", "aaa");
 		root.put("test2", "bbb");
 		
@@ -54,20 +86,53 @@ public final class GOFConfiguration {
 		l1.add(l2);
 		l1.add("eee");
 		root.put("test3", l1);
-		
-		DebugWalker dw = new DebugWalker(System.out);
+	}
+	
+	public Properties getConfigurationInProperties() {
+		EntriesWalkerProperties dw = new EntriesWalkerProperties();
 		root.deepWalk(dw);
+		return dw.p;
+	}
+	
+	/**
+	 * @return in PrettyPrinting
+	 */
+	public String getConfigurationInJsonString() {
+		return gson.toJson(root);
+	}
+	
+	private class EntriesWalkerProperties implements ConfigurationWalker {
+		
+		ArrayList<String> paths = new ArrayList<>();
+		Properties p = new Properties();
+		
+		public void onStringEntry(GOFConfigurationString value) {
+			p.setProperty(paths.stream().collect(Collectors.joining(".")), value.getValue());
+		}
+		
+		public void onMapEntry(String key, GOFConfigurationItem value) {
+			paths.add(key);
+			value.deepWalk(this);
+			paths.remove(paths.size() - 1);
+		}
+		
+		public void onListEntry(int pos, GOFConfigurationItem value) {
+			paths.add(String.valueOf(pos));
+			value.deepWalk(this);
+			paths.remove(paths.size() - 1);
+		}
+		
 	}
 	
 	/**
 	 * +/- YAML exporter
 	 */
-	private class DebugWalker implements ConfigurationWalker {
+	private class EntriesWalkerYAML implements ConfigurationWalker {
 		
 		int deep;
 		PrintStream print;
 		
-		DebugWalker(PrintStream print) {
+		EntriesWalkerYAML(PrintStream print) {
 			this.print = print;
 			deep = -1;
 		}
@@ -95,7 +160,7 @@ public final class GOFConfiguration {
 			deep--;
 		}
 		
-		public void onListEntry(GOFConfigurationItem value) {
+		public void onListEntry(int pos, GOFConfigurationItem value) {
 			deep++;
 			spaces();
 			print.print("- ");
@@ -105,6 +170,101 @@ public final class GOFConfiguration {
 			
 			value.deepWalk(this);
 			deep--;
+		}
+	}
+	
+	/**
+	 * @param path like "val1.val2.val3" or "val1/val2/val3", "/v1/v2", "v1/v2/"
+	 * @return may be null
+	 */
+	public GOFConfigurationItem get(String path) {
+		if (path == null) {
+			throw new NullPointerException("\"path\" can't to be null");
+		}
+		return root.getPath(path);
+	}
+	
+	/**
+	 * @param json_string a Json Object
+	 * @param path, the branch to add, can be null or empty (it will be added to root), or must exists.
+	 */
+	public void mergeWithJsonString(String json_string, String path) {// TODO test
+		merge(path, gson.fromJson(json_string, GOFConfigurationMap.class));
+	}
+	
+	void merge(String from_branch_path, GOFConfigurationMap to_add_with) {
+		GOFConfigurationMap branch = root;
+		if (from_branch_path != null) {
+			if (from_branch_path.equals("") == false) {
+				GOFConfigurationItem _branch = get(from_branch_path);
+				if (branch == null) {
+					throw new NullPointerException("Can't found path: " + from_branch_path);
+				} else if (branch.isMap() == false) {
+					throw new IndexOutOfBoundsException("Selected path is not a Map: " + from_branch_path);
+				}
+				branch = _branch.getAsMap();
+			}
+		}
+		merge(branch, to_add_with);
+	}
+	
+	void merge(GOFConfigurationMap from_branch, GOFConfigurationMap to_add_with) {
+		EntriesWalkerMerger merger = new EntriesWalkerMerger(from_branch);
+		to_add_with.deepWalk(merger);
+	}
+	
+	private class EntriesWalkerMerger implements ConfigurationWalker {
+		GOFConfigurationMap from_branch;
+		ArrayList<String> paths = new ArrayList<>();
+		
+		EntriesWalkerMerger(GOFConfigurationMap from_branch) {
+			this.from_branch = from_branch;
+		}
+		
+		String getActualPath() {
+			return paths.stream().collect(Collectors.joining("."));
+		}
+		
+		public void onStringEntry(GOFConfigurationString value) {
+			// TODO Auto-generated method stub
+			
+		}
+		
+		public void onMapEntry(String key, GOFConfigurationItem value) {
+			paths.add(key);
+			// TODO
+			value.deepWalk(this);
+			paths.remove(paths.size() - 1);
+		}
+		
+		public void onListEntry(int pos, GOFConfigurationItem value) {
+			paths.add(String.valueOf(pos));
+			
+			try {
+				GOFConfigurationItem item = from_branch.get(getActualPath());
+				
+				if (item == null) {
+					paths.remove(paths.size() - 1);
+					item = from_branch.get(getActualPath());
+					
+					// item = new GOFConfigurationList();
+					
+					// TODO create list ?
+				}
+				
+				if (item.isList()) {
+					// TODO change pos item with value ?
+					// TODO else add item ?
+				} else {
+					// TODO remove it, and create list ?
+				}
+				
+				value.deepWalk(this);
+			} catch (Exception e) {
+				log.warn("Can't mergue path, invalid " + getActualPath() + ", " + e.getMessage());
+			}
+			
+			paths.remove(paths.size() - 1);
 		}
 		
 	}

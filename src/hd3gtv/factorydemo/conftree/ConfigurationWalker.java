@@ -22,6 +22,6 @@ public interface ConfigurationWalker {
 	
 	public void onMapEntry(String key, GOFConfigurationItem value);
 	
-	public void onListEntry(GOFConfigurationItem value);
+	public void onListEntry(int pos, GOFConfigurationItem value);
 	
 }

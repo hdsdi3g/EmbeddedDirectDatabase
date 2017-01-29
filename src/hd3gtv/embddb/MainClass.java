@@ -32,6 +32,11 @@ public class MainClass {
 	public static void main(String[] args) throws Exception {
 		
 		GOFConfiguration g = new GOFConfiguration();
+		g.createDummyValues();
+		g.getConfigurationInYAML(System.out);
+		// g.dumpActualConfigurationInProperties().list(System.out);
+		// System.out.println(g.get("test3.3.0"));
+		System.out.println(g.getConfigurationInJsonString());
 		System.exit(0);
 		
 		GlobalObjectFactory gof = new GlobalObjectFactory();

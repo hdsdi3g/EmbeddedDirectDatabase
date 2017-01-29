@@ -19,14 +19,23 @@ package hd3gtv.factorydemo.conftree;
 public interface GOFConfigurationItem {
 	
 	public default GOFConfigurationMap getAsMap() {
+		if (isMap() == false) {
+			throw new ClassCastException("Item is not a Map: " + getClass());
+		}
 		return (GOFConfigurationMap) this;
 	}
 	
 	public default GOFConfigurationList getAsList() {
+		if (isList() == false) {
+			throw new ClassCastException("Item is not a List: " + getClass());
+		}
 		return (GOFConfigurationList) this;
 	}
 	
 	public default GOFConfigurationString getAsString() {
+		if (isString() == false) {
+			throw new ClassCastException("Item is not a String: " + getClass());
+		}
 		return (GOFConfigurationString) this;
 	}
 	
