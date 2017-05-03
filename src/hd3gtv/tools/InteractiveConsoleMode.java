@@ -26,7 +26,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.log4j.Logger;
 
 import hd3gtv.internaltaskqueue.ParametedProcedure;
-import hd3gtv.tools.TableList;
 
 public class InteractiveConsoleMode {
 	
@@ -51,7 +50,7 @@ public class InteractiveConsoleMode {
 			
 			HashSet<Action> actual_actions = new HashSet<>(controller.size());
 			
-			TableList table = new TableList(4);
+			TableList table = new TableList();
 			controller.forEach((order, action) -> {
 				if (actual_actions.contains(action) == false) {
 					actual_actions.add(action);
