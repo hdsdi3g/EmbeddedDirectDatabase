@@ -39,16 +39,13 @@ import org.apache.log4j.Logger;
 
 import com.google.common.reflect.TypeToken;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 import hd3gtv.internaltaskqueue.ActivityScheduledAction;
 import hd3gtv.internaltaskqueue.ActivityScheduler;
-import hd3gtv.internaltaskqueue.Procedure;
 import hd3gtv.mydmam.MyDMAM;
 import hd3gtv.tools.AddressMaster;
-import hd3gtv.tools.GsonIgnoreStrategy;
 import hd3gtv.tools.InteractiveConsoleMode;
 import hd3gtv.tools.PressureMeasurement;
 import hd3gtv.tools.TableList;
@@ -56,8 +53,6 @@ import hd3gtv.tools.TableList;
 public class PoolManager {
 	
 	private static Logger log = Logger.getLogger(PoolManager.class);
-	
-	private final Gson simple_gson;
 	
 	private ArrayList<SocketServer> local_servers;
 	private RequestHandler request_handler;
@@ -92,19 +87,6 @@ public class PoolManager {
 	}.getType();
 	
 	public PoolManager(String master_password_key) throws GeneralSecurityException, IOException {
-		GsonBuilder builder = new GsonBuilder();
-		builder.serializeNulls();
-		
-		GsonIgnoreStrategy ignore_strategy = new GsonIgnoreStrategy();
-		builder.addDeserializationExclusionStrategy(ignore_strategy);
-		builder.addSerializationExclusionStrategy(ignore_strategy);
-		
-		/**
-		 * Outside of this package serializers
-		 */
-		MyDMAM.registerBaseSerializers(builder);
-		simple_gson = builder.create();
-		
 		local_servers = new ArrayList<>();
 		console = new InteractiveConsoleMode();
 		
@@ -132,7 +114,7 @@ public class PoolManager {
 		
 		console.addOrder("ql", "Queue list", "Display actual queue list", getClass(), param -> {
 			System.out.println("Executor status:");
-			TableList table = new TableList(2);
+			TableList table = new TableList();
 			table.addRow("Active", String.valueOf(executor_pool.getActiveCount()));
 			table.addRow("Max capacity", String.valueOf(executor_pool_queue.remainingCapacity()));
 			table.addRow("Completed", String.valueOf(executor_pool.getCompletedTaskCount()));
@@ -154,7 +136,7 @@ public class PoolManager {
 		});
 		
 		console.addOrder("nl", "Node list", "Display actual connected node", getClass(), param -> {
-			TableList table = new TableList(5);
+			TableList table = new TableList();
 			nodes.stream().forEach(node -> {
 				node.addToActualStatus(table);
 			});
@@ -183,20 +165,24 @@ public class PoolManager {
 			}
 			
 			if (param.startsWith("add")) {
-				declareNewPotentialDistantServer(addr, new ConnectionCallback() {
-					
-					public void onNewConnectedNode(Node node) {
-						System.out.println("Node " + node + " is added sucessfully");
-					}
-					
-					public void onLocalServerConnection(InetSocketAddress server) {
-						System.out.println("You can't add local server to new node: " + server);
-					}
-					
-					public void alreadyConnectedNode(Node node) {
-						System.out.println("You can't add this node " + node + " because it's already added");
-					}
-				});
+				try {
+					declareNewPotentialDistantServer(addr, new ConnectionCallback() {
+						
+						public void onNewConnectedNode(Node node) {
+							System.out.println("Node " + node + " is added sucessfully");
+						}
+						
+						public void onLocalServerConnection(InetSocketAddress server) {
+							System.out.println("You can't add local server to new node: " + server);
+						}
+						
+						public void alreadyConnectedNode(Node node) {
+							System.out.println("You can't add this node " + node + " because it's already added");
+						}
+					});
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
 			} else {
 				Node node = get(addr);
 				if (node == null) {
@@ -235,7 +221,7 @@ public class PoolManager {
 		});
 		
 		console.addOrder("sch", "Activity scheduler", "Display the activated regular task list", getClass(), param -> {
-			TableList table = new TableList(5);
+			TableList table = new TableList();
 			
 			if (node_scheduler.isEmpty()) {
 				System.out.println("No regular tasks to display for nodes.");
@@ -256,7 +242,7 @@ public class PoolManager {
 		});
 		
 		console.addOrder("srv", "Servers status", "Display all servers status", getClass(), param -> {
-			TableList table = new TableList(3);
+			TableList table = new TableList();
 			local_servers.forEach(local_server -> {
 				if (local_server.isOpen()) {
 					table.addRow("open", local_server.getListen().getHostString(), String.valueOf(local_server.getListen().getPort()));
@@ -299,13 +285,13 @@ public class PoolManager {
 		});
 		
 		console.addOrder("ip", "IP properties", "Show actual network properties", getClass(), param -> {
-			TableList table = new TableList(7);
+			TableList table = new TableList();
 			addr_master.dump(table);
 			table.print();
 		});
 		
 		console.addOrder("stats", "Get last pressure measurement", "Get nodelist data stats", getClass(), param -> {
-			TableList list = new TableList(10);
+			TableList list = new TableList();
 			PressureMeasurement.toTableHeader(list);
 			pressure_measurement_recevied.getActualStats(false).toTable(list, "Recevied");
 			pressure_measurement_sended.getActualStats(false).toTable(list, "Sended");
@@ -313,7 +299,7 @@ public class PoolManager {
 		});
 		
 		console.addOrder("resetstats", "Reset pressure measurement", "Get nodelist data stats and reset it", getClass(), param -> {
-			TableList list = new TableList(10);
+			TableList list = new TableList();
 			PressureMeasurement.toTableHeader(list);
 			pressure_measurement_recevied.getActualStats(true).toTable(list, "Recevied");
 			pressure_measurement_sended.getActualStats(true).toTable(list, "Sended");
@@ -347,7 +333,7 @@ public class PoolManager {
 	}
 	
 	public Gson getSimpleGson() {
-		return simple_gson;
+		return MyDMAM.gson_kit.getGsonSimple();
 	}
 	
 	AsynchronousChannelGroup getChannelGroup() {
@@ -697,7 +683,7 @@ public class PoolManager {
 				return 10;
 			}
 			
-			public Procedure getRegularScheduledAction() {
+			public Runnable getRegularScheduledAction() {
 				return () -> {
 					purgeClosedNodes();
 					if (autodiscover_can_be_remake.compareAndSet(true, false)) {

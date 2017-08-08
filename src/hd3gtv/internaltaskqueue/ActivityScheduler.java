@@ -86,7 +86,7 @@ public class ActivityScheduler<T> {
 				throw new NullPointerException("\"action\" can't to be null");
 			}
 			
-			Procedure procedure = action.getRegularScheduledAction();
+			Runnable procedure = action.getRegularScheduledAction();
 			if (procedure == null) {
 				throw new NullPointerException("\"procedure\" can't to be null");
 			}
@@ -105,7 +105,7 @@ public class ActivityScheduler<T> {
 			future = scheduled_ex_service.scheduleAtFixedRate(() -> {
 				log.trace("Do regular process \"" + action.getScheduledActionName() + "\" for " + reference.getClass().getSimpleName());
 				try {
-					procedure.process();
+					procedure.run();
 					last_exec_date = System.currentTimeMillis();
 				} catch (Exception e) {
 					if (action != null) {

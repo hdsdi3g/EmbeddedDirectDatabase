@@ -34,7 +34,6 @@ import org.apache.log4j.Logger;
 import com.google.gson.JsonObject;
 
 import hd3gtv.internaltaskqueue.ActivityScheduledAction;
-import hd3gtv.internaltaskqueue.Procedure;
 import hd3gtv.tools.PressureMeasurement;
 import hd3gtv.tools.TableList;
 
@@ -344,9 +343,13 @@ public class Node {
 				return 10;
 			}
 			
-			public Procedure getRegularScheduledAction() {
+			public Runnable getRegularScheduledAction() {
 				return () -> {
-					current_node.checkIfOpen();
+					try {
+						current_node.checkIfOpen();
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
 					pool_manager.getRequestHandler().getRequestByClass(RequestPoke.class).sendRequest(null, current_node);
 				};
 			}

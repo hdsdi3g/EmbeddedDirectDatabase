@@ -22,11 +22,9 @@ import java.io.InputStreamReader;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 import org.apache.log4j.Logger;
-
-import hd3gtv.internaltaskqueue.ParametedProcedure;
-import hd3gtv.tools.TableList;
 
 public class InteractiveConsoleMode {
 	
@@ -51,7 +49,7 @@ public class InteractiveConsoleMode {
 			
 			HashSet<Action> actual_actions = new HashSet<>(controller.size());
 			
-			TableList table = new TableList(4);
+			TableList table = new TableList();
 			controller.forEach((order, action) -> {
 				if (actual_actions.contains(action) == false) {
 					actual_actions.add(action);
@@ -69,12 +67,12 @@ public class InteractiveConsoleMode {
 	}
 	
 	private class Action {
-		private ParametedProcedure<String> procedure;
+		private Consumer<String> procedure;
 		private String name;
 		private String description;
 		private Class<?> creator;
 		
-		Action(String name, String description, Class<?> creator, ParametedProcedure<String> procedure) {
+		Action(String name, String description, Class<?> creator, Consumer<String> procedure) {
 			this.procedure = procedure;
 			if (procedure == null) {
 				throw new NullPointerException("\"procedure\" can't to be null");
@@ -102,7 +100,7 @@ public class InteractiveConsoleMode {
 	 * @param creator
 	 * @param procedure callbacked param maybe null.
 	 */
-	public void addOrder(String order, String name, String description, Class<?> creator, ParametedProcedure<String> procedure) {
+	public void addOrder(String order, String name, String description, Class<?> creator, Consumer<String> procedure) {
 		synchronized (controller) {
 			if (controller.containsKey(order)) {
 				log.warn("Action " + order + " already exists. Added by " + controller.get(order).creator + " and in conflict with " + creator);
@@ -166,7 +164,7 @@ public class InteractiveConsoleMode {
 							System.out.println("Enter \"q\" for end loop.");
 							Thread.sleep(200);
 							while (in_loop.get()) {
-								f_order.procedure.process(parameter);
+								f_order.procedure.accept(parameter);
 								Thread.sleep(1000);
 								System.out.println();
 							}
@@ -181,7 +179,7 @@ public class InteractiveConsoleMode {
 				}
 				
 				try {
-					controller.get(order).procedure.process(param);
+					controller.get(order).procedure.accept(param);
 				} catch (Exception e) {
 					System.out.println("Error during " + order);
 					e.printStackTrace(System.out);

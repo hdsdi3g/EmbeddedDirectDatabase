@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit;
 
 public interface ActivityScheduledAction<T> {
 	
-	public Procedure getRegularScheduledAction();
+	public Runnable getRegularScheduledAction();
 	
 	public String getScheduledActionName();
 	
