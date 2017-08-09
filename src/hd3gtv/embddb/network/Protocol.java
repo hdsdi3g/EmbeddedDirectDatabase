@@ -40,6 +40,10 @@ public final class Protocol {
 	public static final int VERSION = 1;
 	public static final Charset UTF8 = Charset.forName("UTF-8");
 	public static final int BUFFER_SIZE = 0xFFFF;
+	
+	/**
+	 * EMBDBMYD
+	 */
 	public static final byte[] APP_SOCKET_HEADER_TAG = "EMBDBMYD".getBytes(UTF8);
 	
 	private IvParameterSpec salt;
@@ -68,6 +72,10 @@ public final class Protocol {
 	}
 	
 	public int getDefaultTCPPort() {
+		return 9160;
+	}
+	
+	public int getDefaultUDPBroadcastPort() {
 		return 9160;
 	}
 	

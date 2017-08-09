@@ -77,6 +77,8 @@ public class PoolManager {
 	private PressureMeasurement pressure_measurement_recevied;
 	private List<InetSocketAddress> bootstrap_servers;
 	
+	private NetDiscover net_discover;
+	
 	/**
 	 * synchronizedList
 	 */
@@ -111,6 +113,8 @@ public class PoolManager {
 		pool_scheduler = new ActivityScheduler<>();
 		pool_scheduler.add(this, getScheduledAction());
 		node_scheduler = new ActivityScheduler<>();
+		
+		net_discover = new NetDiscover(this);
 		
 		console.addOrder("ql", "Queue list", "Display actual queue list", getClass(), param -> {
 			System.out.println("Executor status:");
@@ -387,6 +391,8 @@ public class PoolManager {
 		
 		log.info("Start local server on " + logresult);
 		
+		net_discover.startRegularSend();
+		
 		Runtime.getRuntime().addShutdownHook(shutdown_hook);
 	}
 	
@@ -395,6 +401,8 @@ public class PoolManager {
 	 */
 	public void closeAll() {
 		log.info("Close all functions: clients, server, autodiscover... It's a blocking operation");
+		
+		net_discover.close();
 		
 		pool_scheduler.remove(this);
 		sayToAllNodesToDisconnectMe(true);
@@ -585,6 +593,16 @@ public class PoolManager {
 		}
 		
 		return n;
+	}
+	
+	public boolean isConnectedTo(UUID uuid) {
+		if (uuid == null) {
+			throw new NullPointerException("\"uuid\" can't to be null");
+		}
+		
+		return nodes.stream().filter(n -> {
+			return n.equalsThisUUID(uuid);
+		}).findFirst().isPresent();
 	}
 	
 	public void purgeClosedNodes() {

@@ -129,9 +129,6 @@ public class AddressMaster {
 			return address.getHostAddress();
 		}
 		
-		/**
-		 * @param table w = 7
-		 */
 		public void dump(TableList table) {
 			String s_virtual = "";
 			if (virtual) {
@@ -223,6 +220,20 @@ public class AddressMaster {
 	public Stream<InetAddress> getAddresses() {
 		return all_addresses.stream().map(addr -> {
 			return addr.address;
+		});
+	}
+	
+	public boolean isPublicAndPhysicalAddress(InetAddress this_host_addr_candidate) {
+		return all_addresses.stream().anyMatch(addr -> {
+			return addr.broadcast != null & addr.address.equals(this_host_addr_candidate);
+		});
+	}
+	
+	public Stream<InetAddress> getBroadcastAddresses() {
+		return all_addresses.stream().filter(addr -> {
+			return addr.broadcast != null;
+		}).map(addr -> {
+			return addr.broadcast;
 		});
 	}
 	
